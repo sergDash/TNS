@@ -210,8 +210,9 @@ x-select {
     gap: 20px;
     align-content: start;
     width: 100%;
-    /* max-width: 760px; не влезает контент */
-    max-width: min-content;
+    // Ширина панели задана явно: карточки моделей раскладываются в ряд,
+    // а не собираются в столбец по ширине содержимого.
+    max-width: 980px;
     padding: 32px;
 
     // Шапка: заголовок и вводный абзац.
@@ -266,9 +267,16 @@ x-select {
         font-size: 14px;
     }
 
-    // Строка формы: поля ввода и кнопка в один ряд.
+    // Строка формы: поля ввода и кнопка в один ряд. Кнопка не сжимается,
+    // иначе её подпись ломается на две строки.
     .line {
         .row();
+
+        flex-wrap: wrap;
+
+        .button {
+            flex: none;
+        }
     }
 
     // Две колонки для сравнения: обычные списки и списки-компоненты.
@@ -337,6 +345,112 @@ x-select {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+    }
+
+    // Карточки выбора моделей: три роли в ряд; на узком экране переносятся.
+    .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+
+    .card {
+        .surface();
+
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+
+        // Выключенная роль остаётся на месте, но приглушена: её можно
+        // вернуть одним кликом, и видно, что она не исчезла.
+        &.off {
+            opacity: 0.55;
+        }
+
+        .head {
+            .row(8px);
+
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .check {
+            display: grid;
+            place-items: center;
+            flex: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid @border;
+            border-radius: 4px;
+            color: @ok;
+            font-size: 12px;
+        }
+
+        .title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+    }
+
+    // Вариант модели: название, размер и память. Выбранный подсвечен рамкой,
+    // а установленный отличается цветом подписи.
+    .variant {
+        display: grid;
+        gap: 2px;
+        padding: 8px 10px;
+        border: 1px solid @border;
+        border-radius: 8px;
+        cursor: pointer;
+
+        &.chosen {
+            border-color: @accent;
+            background: fade(@accent, 8%);
+        }
+
+        .title {
+            font-size: 13px;
+        }
+
+        .meta {
+            color: @text-muted;
+            font-size: 12px;
+        }
+
+        &.done .meta {
+            color: @ok;
+        }
+    }
+
+    // Итог подготовки: строки «подпись — значение».
+    .plan {
+        display: grid;
+        gap: 4px;
+        padding-top: 12px;
+        border-top: 1px solid @border;
+
+        .error {
+            color: @error;
+        }
+    }
+
+    // Состояние станка: точка и подпись, как у проверки связи.
+    .station {
+        .row(8px);
+
+        color: @text-muted;
+
+        .dot {
+            .indicator(@text-muted);
+        }
+
+        &.ok {
+            color: @ok;
+
+            .dot {
+                .indicator(@ok);
+            }
         }
     }
 

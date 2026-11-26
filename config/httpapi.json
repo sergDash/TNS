@@ -26,7 +26,13 @@
   },
   "modules": {
     "disabled": [],
-    "settings": {}
+    "settings": {
+      "models": {
+        "catalog": "config/models.json",
+        "dir": "world_db/models",
+        "bin": "bin"
+      }
+    }
   },
   "journal": {
     "path": "data/journal.log",

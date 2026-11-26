@@ -29,14 +29,75 @@
             <header class="head" w-static>
                 <h1 class="title">TrueNeverStory</h1>
                 <p class="lead">
-                    Мир, который отвечает текстом. Пока здесь каркас: сборка
-                    на движке go-wex, состояние процесса и элементы
-                    интерфейса, из которых собираются экраны. Экраны хода,
-                    книги и карты появляются по мере переезда.
+                    Мир, который отвечает текстом. Для первого запуска нужны
+                    три модели и станок: они работают на этой машине, и текст
+                    никуда не отправляется.
                 </p>
             </header>
 
             <p class="failure" w-if="failure">{{ failure }}</p>
+
+            <section class="block">
+                <h2 class="caption">
+                    Скачивание моделей
+                    <span class="engine">domains/models</span>
+                </h2>
+                <p class="note">
+                    Для игры нужны три модели и станок. Станок — llama.cpp:
+                    он запускает модели на этой машине, никуда не отправляя
+                    текст. Модели разные по роли: Ткач пишет прозу, Смысл
+                    считает вектор на каждой реплике, Разбор читает первую
+                    реплику главы.
+                </p>
+                <p class="note">
+                    Выберите, что скачивать. Модель занимает место и на диске,
+                    и в памяти при работе; Смысл работает постоянно, поэтому
+                    его вариант выбирают по памяти машины, а генератор в
+                    памяти один за раз — Ткач или Разбор.
+                </p>
+
+                <p class="station" w-class="{ 'ok': models.engine.found }">
+                    <span class="dot"></span>
+                    <span w-if="models.engine.found">Станок на месте: {{ models.engine.path }}</span>
+                    <span w-if="!models.engine.found">{{ models.engine.title }} — скачается вместе с моделями</span>
+                </p>
+
+                <div class="cards">
+                    <article class="card" w-for="slot in models.slots traceby slot.role"
+                             w-class="{ 'off': !slot.enabled }">
+                        <div class="head" data-role="{{ slot.role }}" w-on="click:toggleRole">
+                            <span class="check">{{ slot.enabled ? '✓' : '' }}</span>
+                            <span class="title">{{ slot.title }}</span>
+                        </div>
+                        <p class="note">{{ slot.note }}</p>
+                        <div class="variant" w-for="v in slot.variants traceby v.id"
+                             w-class="{ 'chosen': slot.chosen === v.id, 'done': v.installed }"
+                             data-role="{{ slot.role }}" data-variant="{{ v.id }}"
+                             w-on="click:chooseVariant">
+                            <span class="title">{{ v.title }}</span>
+                            <span class="meta">{{ v.installed ? 'уже на месте' : v.sizeText }}</span>
+                            <span class="meta">память ≈ {{ v.ramText }}</span>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="plan">
+                    <p><span class="hint">К скачиванию</span> {{ plan.text }}</p>
+                    <p><span class="hint">Память при работе</span> ≈ {{ plan.ramText }}</p>
+                    <p w-class="{ 'error': !plan.enough }">
+                        <span class="hint">Свободно на диске</span> {{ diskText }}
+                        <span w-if="!plan.enough">— этого мало</span>
+                    </p>
+                </div>
+
+                <div class="line">
+                    <button class="button" w-disabled="true">Начать скачивание</button>
+                    <span class="hint">
+                        Кнопка включится, когда появится загрузчик: сначала
+                        видно, что и сколько будет скачано.
+                    </span>
+                </div>
+            </section>
 
             <section class="block">
                 <h2 class="caption">

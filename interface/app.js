@@ -101,6 +101,9 @@ $(function () {
         ok: false,
         status: 'проверяем связь с сервером…',
         version: '',
+        models: { engine: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
+        plan: { bytes: 0, text: '—', ramGb: 0, ramText: '—', enough: true },
+        diskText: '—',
         selects: {
             color: { open: false, value: 'зелёный', label: 'зелёный' },
             city: { open: false, value: '', label: '— город —', query: '' },
@@ -301,6 +304,124 @@ $(function () {
             });
     }
 
+    // humanBytes показывает размер так, как его читают в каталоге: гигабайты
+    // с одним знаком, остальное целыми мегабайтами. Запятая — как в тексте.
+    function humanBytes(n) {
+        if (!n || n <= 0) {
+            return '—';
+        }
+        if (n >= 1000000000000) {
+            return (n / 1000000000000).toFixed(1).replace('.', ',') + ' ТБ';
+        }
+        if (n >= 1000000000) {
+            return (n / 1000000000).toFixed(1).replace('.', ',') + ' ГБ';
+        }
+        return Math.round(n / 1000000) + ' МБ';
+    }
+
+    // humanRAM — память при работе, целыми гигабайтами.
+    function humanRAM(gb) {
+        if (!gb) {
+            return '—';
+        }
+        return gb + ' ГБ';
+    }
+
+    // prepareModels переводит ответ модуля в стейт: у роли появляется
+    // включённость и выбранный вариант, у варианта — готовые строки размера
+    // и памяти, чтобы шаблон ничего не считал. По умолчанию выбрана
+    // установленная модель, а если её нет — первый вариант каталога: он
+    // самый экономный по памяти.
+    function prepareModels(data) {
+        var slots = [];
+
+        for (var i = 0; i < data.slots.length; i++) {
+            var slot = data.slots[i];
+            var variants = [];
+            var installed = '';
+
+            for (var j = 0; j < slot.variants.length; j++) {
+                var v = slot.variants[j];
+
+                variants.push({
+                    id: v.id,
+                    title: v.title,
+                    bytes: v.bytes,
+                    ramGb: v.ramGb,
+                    installed: v.installed,
+                    sizeText: (v.approx ? '≈ ' : '') + humanBytes(v.bytes),
+                    ramText: humanRAM(v.ramGb)
+                });
+                if (v.installed && !installed) {
+                    installed = v.id;
+                }
+            }
+
+            slots.push({
+                role: slot.role,
+                title: slot.title,
+                note: slot.note,
+                enabled: true,
+                chosen: installed || (variants.length ? variants[0].id : ''),
+                variants: variants
+            });
+        }
+        return { engine: data.engine, slots: slots, disk: data.disk };
+    }
+
+    // recomputePlan считает итог по выбору: сколько предстоит скачать и
+    // сколько памяти займёт работа. Смысл живёт в памяти постоянно,
+    // генераторы — по одному за раз, поэтому память считается как смысл
+    // плюс старший из включённых генераторов.
+    function recomputePlan(state) {
+        var bytes = 0;
+        var resident = 0;
+        var generator = 0;
+
+        for (var i = 0; i < state.models.slots.length; i++) {
+            var slot = state.models.slots[i];
+            if (!slot.enabled) {
+                continue;
+            }
+
+            var chosen = null;
+            for (var j = 0; j < slot.variants.length; j++) {
+                if (slot.variants[j].id === slot.chosen) {
+                    chosen = slot.variants[j];
+                    break;
+                }
+            }
+            if (!chosen) {
+                continue;
+            }
+
+            if (!chosen.installed) {
+                bytes += chosen.bytes;
+            }
+            if (slot.role === 'embed') {
+                resident = chosen.ramGb;
+            } else if (chosen.ramGb > generator) {
+                generator = chosen.ramGb;
+            }
+        }
+
+        var parts = [];
+        if (bytes > 0) {
+            parts.push(humanBytes(bytes));
+        }
+        // Архив станка сервер ещё не мерил: его размер уточняется при
+        // скачивании, поэтому в итоге он назван словом, а не числом.
+        if (!state.models.engine.found) {
+            parts.push('станок');
+        }
+
+        state.plan.bytes = bytes;
+        state.plan.text = parts.length ? parts.join(' + ') : 'всё уже на месте';
+        state.plan.ramGb = resident + generator;
+        state.plan.ramText = humanRAM(resident + generator);
+        state.plan.enough = state.models.disk.freeBytes >= bytes;
+    }
+
     // snapshot читает состояние процесса: по нему видно, что сервер отвечает
     // и какая сборка запущена. Один запрос — одна перерисовка.
     function snapshot(state) {
@@ -323,12 +444,61 @@ $(function () {
             });
     }
 
+    // loadModels читает каталог и состояние установки: что уже на месте,
+    // что предстоит скачать и сколько для этого нужно места.
+    function loadModels(state) {
+        return call('/api/models')
+            .then(function (data) {
+                state.models = prepareModels(data);
+                state.diskText = humanBytes(data.disk.freeBytes);
+                recomputePlan(state);
+            })
+            .catch(function (error) {
+                state.failure = error.message;
+            });
+    }
+
     // check повторяет тот запрос, которым страница проверяет связь. Кнопка
     // нужна не для данных, а чтобы запрос было видно в инструментах
     // веб-разработчика: нажатие оставляет одну строку в сетевой панели.
     view.method('check', function (state) {
         return function () {
             snapshot(state);
+        };
+    });
+
+    // toggleRole включает и выключает роль кликом по её заголовку: выбор
+    // того, что ставить, — это и есть отметка в карточке.
+    view.method('toggleRole', function (state) {
+        return function (event) {
+            var role = event.currentTarget.dataset.role;
+
+            for (var i = 0; i < state.models.slots.length; i++) {
+                if (state.models.slots[i].role === role) {
+                    state.models.slots[i].enabled = !state.models.slots[i].enabled;
+                    break;
+                }
+            }
+            recomputePlan(state);
+        };
+    });
+
+    // chooseVariant выбирает вариант роли и включает роль: выбрать вариант
+    // значит согласиться ставить. w-on аргументов не передаёт, поэтому роль
+    // и вариант берутся из data-атрибутов строки.
+    view.method('chooseVariant', function (state) {
+        return function (event) {
+            var role = event.currentTarget.dataset.role;
+            var variant = event.currentTarget.dataset.variant;
+
+            for (var i = 0; i < state.models.slots.length; i++) {
+                if (state.models.slots[i].role === role) {
+                    state.models.slots[i].chosen = variant;
+                    state.models.slots[i].enabled = true;
+                    break;
+                }
+            }
+            recomputePlan(state);
         };
     });
 
@@ -405,6 +575,7 @@ $(function () {
     view.method('refresh', function (state) {
         return function () {
             snapshot(state);
+            loadModels(state);
         };
     });
 
@@ -428,6 +599,7 @@ $(function () {
     // этого watchOutside живёт на toggle, а не на $mount.
     view.on('$mount', function (state) {
         snapshot(state);
+        loadModels(state);
     });
 
     // Клик вне списка закрывает открытые. Слушатель на документе, потому что
