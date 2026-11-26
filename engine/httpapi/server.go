@@ -66,7 +66,11 @@ func New(addr string, assets fs.FS) *Server {
 	}
 
 	// Статика — самый общий образец пути; точные пути модулей выигрывают у него.
-	s.mux.Handle("GET /", http.FileServer(http.FS(assets)))
+	// Ответ помечается как подлежащий сверке: интерфейс читается с диска и
+	// правится без пересборки, поэтому браузер не должен показывать файл из
+	// кэша, не спросив сервер. Опыт 2026-11-27: после правки экрана мира
+	// открытая вкладка показывала пустую форму, пока браузер не сбросил кэш.
+	s.mux.Handle("GET /", revalidate(http.FileServer(http.FS(assets))))
 	return s
 }
 
@@ -233,6 +237,16 @@ func (s *Server) HTTPRaw(method, path string, h http.Handler) {
 // стоит выше и видит все запросы, включая статику.
 func (s *Server) route(method, path string, h http.Handler) {
 	s.mux.Handle(method+" "+path, s.withActivity(s.limitBody(h)))
+}
+
+// revalidate заставляет браузер сверять статику с сервером перед показом.
+// Файл отдаётся из кэша только после ответа 304: http.FileServer уже
+// выставляет Last-Modified, поэтому сверка стоит одного запроса без тела.
+func revalidate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // recoverEnvelope ловит панику обработчика простого маршрута: клиент получает
