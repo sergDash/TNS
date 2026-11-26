@@ -6,15 +6,15 @@ import (
 	"syscall"
 )
 
-// Config — настройки модуля: где лежат файлы ролей и бинарник станка.
+// Config — настройки модуля: где лежат файлы ролей и бинарник машины.
 // Пустое значение берёт путь по умолчанию, чтобы первая сборка работала
 // без правки настроек.
 type Config struct {
-	// Catalog — файл каталога ролей и станка.
+	// Catalog — файл каталога ролей и машины.
 	Catalog string `json:"catalog"`
 	// Dir — каталог ролей: <dir>/<роль>/<файл>.
 	Dir string `json:"dir"`
-	// Bin — каталог станка: <bin>/llama-server.
+	// Bin — каталог машины: <bin>/llama-server.
 	Bin string `json:"bin"`
 }
 
@@ -42,17 +42,17 @@ func (c Config) withDefaults() Config {
 // ни один путь отсюда не пишется, поэтому снимок безопасно запрашивать
 // сколько угодно раз.
 type snapshot struct {
-	// Engine — станок; Found значит, что бинарник на месте и исполняемый.
-	Engine engineState `json:"engine"`
+	// Machine — машина; Found значит, что бинарник на месте и исполняемый.
+	Machine machineState `json:"machine"`
 	// Slots — роли с вариантами; порядок каталога сохраняется.
 	Slots []slotState `json:"slots"`
 	// Disk — свободное место там, где будут лежать файлы.
 	Disk diskState `json:"disk"`
-	// Ready — ставить нечего: станок и все роли уже на месте.
+	// Ready — ставить нечего: машина и все роли уже на месте.
 	Ready bool `json:"ready"`
 }
 
-type engineState struct {
+type machineState struct {
 	Title   string `json:"title"`
 	File    string `json:"file"`
 	Found   bool   `json:"found"`
@@ -87,21 +87,21 @@ type diskState struct {
 // поставки: снимок ничего не решает сам, он только сверяет его с диском.
 func snapshotOf(cfg Config, catalog Catalog) snapshot {
 	out := snapshot{
-		Engine: engineState{
-			Title:   catalog.Engine.Title,
-			File:    catalog.Engine.File,
-			Version: catalog.Engine.Version,
-			Path:    filepath.Join(cfg.Bin, catalog.Engine.File),
+		Machine: machineState{
+			Title:   catalog.Machine.Title,
+			File:    catalog.Machine.File,
+			Version: catalog.Machine.Version,
+			Path:    filepath.Join(cfg.Bin, catalog.Machine.File),
 		},
 	}
 
-	// Станок считается найденным, только если файл исполняемый: лежащий
+	// Машина считается найденным, только если файл исполняемый: лежащий
 	// рядом архив или огрызок загрузки станцией не является.
-	if info, err := os.Stat(out.Engine.Path); err == nil && info.Mode().Perm()&0o111 != 0 {
-		out.Engine.Found = true
+	if info, err := os.Stat(out.Machine.Path); err == nil && info.Mode().Perm()&0o111 != 0 {
+		out.Machine.Found = true
 	}
 
-	ready := out.Engine.Found
+	ready := out.Machine.Found
 	for _, slot := range catalog.Roles {
 		state := slotState{Role: string(slot.Role), Title: slot.Title, Note: slot.Note}
 		installed := false

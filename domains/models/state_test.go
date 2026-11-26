@@ -23,8 +23,8 @@ func shippedCatalog(t *testing.T) Catalog {
 func TestShippedCatalog(t *testing.T) {
 	cat := shippedCatalog(t)
 
-	if cat.Engine.File == "" || cat.Engine.Source == "" {
-		t.Fatal("станок: нет файла или источника")
+	if cat.Machine.File == "" || cat.Machine.Source == "" {
+		t.Fatal("машина: нет файла или источника")
 	}
 	if len(cat.Roles) != 3 {
 		t.Fatalf("ролей: %d, ожидалось 3", len(cat.Roles))
@@ -61,11 +61,11 @@ func TestCatalogRejectsBroken(t *testing.T) {
 		body string
 	}{
 		{"пустой", `{}`},
-		{"роль без вариантов", `{"engine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[]}]}`},
-		{"вариант без размера", `{"engine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[{"id":"a","title":"А","file":"a.gguf","ramGb":5,"source":"https://example"}]}]}`},
-		{"вариант без памяти", `{"engine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[{"id":"a","title":"А","file":"a.gguf","bytes":10,"source":"https://example"}]}]}`},
-		{"роль дважды", `{"engine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[{"id":"a","title":"А","file":"a.gguf","bytes":10,"ramGb":5,"source":"https://example"}]},{"role":"weaver","title":"Ткач","variants":[{"id":"b","title":"Б","file":"b.gguf","bytes":10,"ramGb":5,"source":"https://example"}]}]}`},
-		{"неизвестный ключ", `{"engine":{"file":"llama-server"},"rolez":[]}`},
+		{"роль без вариантов", `{"machine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[]}]}`},
+		{"вариант без размера", `{"machine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[{"id":"a","title":"А","file":"a.gguf","ramGb":5,"source":"https://example"}]}]}`},
+		{"вариант без памяти", `{"machine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[{"id":"a","title":"А","file":"a.gguf","bytes":10,"source":"https://example"}]}]}`},
+		{"роль дважды", `{"machine":{"file":"llama-server"},"roles":[{"role":"weaver","title":"Ткач","variants":[{"id":"a","title":"А","file":"a.gguf","bytes":10,"ramGb":5,"source":"https://example"}]},{"role":"weaver","title":"Ткач","variants":[{"id":"b","title":"Б","file":"b.gguf","bytes":10,"ramGb":5,"source":"https://example"}]}]}`},
+		{"неизвестный ключ", `{"machine":{"file":"llama-server"},"rolez":[]}`},
 	}
 
 	dir := t.TempDir()
@@ -80,7 +80,7 @@ func TestCatalogRejectsBroken(t *testing.T) {
 	}
 }
 
-// TestSnapshotMissing — пустые каталоги: ставить нужно всё, станок не найден,
+// TestSnapshotMissing — пустые каталоги: ставить нужно всё, машина не найден,
 // свободное место всё равно сообщается (место общее с ближайшим предком).
 func TestSnapshotMissing(t *testing.T) {
 	dir := t.TempDir()
@@ -92,8 +92,8 @@ func TestSnapshotMissing(t *testing.T) {
 	if got.Ready {
 		t.Fatal("пустой каталог признан готовым")
 	}
-	if got.Engine.Found {
-		t.Fatal("станок найден без файла")
+	if got.Machine.Found {
+		t.Fatal("машина найден без файла")
 	}
 	for _, slot := range got.Slots {
 		for _, v := range slot.Variants {
@@ -107,31 +107,31 @@ func TestSnapshotMissing(t *testing.T) {
 	}
 }
 
-// TestSnapshotInstalled — файлы на месте: роль установлена, а станок
+// TestSnapshotInstalled — файлы на месте: роль установлена, а машина
 // найден только если он исполняемый.
 func TestSnapshotInstalled(t *testing.T) {
 	cat := shippedCatalog(t)
 	dir := t.TempDir()
 	cfg := Config{Dir: filepath.Join(dir, "models"), Bin: filepath.Join(dir, "bin")}
 
-	// Неисполняемый файл станком не считается: так выглядит недокачанный
+	// Неисполняемый файл машиной не считается: так выглядит недокачанный
 	// или распакованный без прав бинарник.
 	if err := os.MkdirAll(cfg.Bin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg.Bin, cat.Engine.File), []byte("не бинарник"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfg.Bin, cat.Machine.File), []byte("не бинарник"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got := snapshotOf(cfg, cat); got.Engine.Found {
-		t.Fatal("неисполняемый файл признан станком")
+	if got := snapshotOf(cfg, cat); got.Machine.Found {
+		t.Fatal("неисполняемый файл признан машиной")
 	}
 
-	if err := os.WriteFile(filepath.Join(cfg.Bin, cat.Engine.File), []byte("#!/bin/sh\n"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(cfg.Bin, cat.Machine.File), []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	// WriteFile не меняет права у уже созданного файла, поэтому режим
 	// выставляется явно: без него проверка исполняемости не сработает.
-	if err := os.Chmod(filepath.Join(cfg.Bin, cat.Engine.File), 0o755); err != nil {
+	if err := os.Chmod(filepath.Join(cfg.Bin, cat.Machine.File), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,8 +148,8 @@ func TestSnapshotInstalled(t *testing.T) {
 	}
 
 	got := snapshotOf(cfg, cat)
-	if !got.Engine.Found {
-		t.Fatal("исполняемый станок не найден")
+	if !got.Machine.Found {
+		t.Fatal("исполняемый машина не найден")
 	}
 	if !got.Ready {
 		t.Fatal("всё установлено, а готовность не выставлена")

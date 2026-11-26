@@ -1,5 +1,5 @@
 {
-  "engine": {
+  "machine": {
     "title": "llama.cpp · b12063",
     "file": "llama-server",
     "version": "b12063",
@@ -21,6 +21,66 @@
           "ramGb": 5,
           "source": "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
           "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff"
+        },
+        {
+          "id": "qwen35-4b-q4",
+          "title": "Qwen 3.5 4B abliterated · Q4_K_M",
+          "file": "Qwen3.5-4B-abliterated.Q4_K_M.gguf",
+          "bytes": 2707514688,
+          "approx": false,
+          "ramGb": 6,
+          "source": "https://huggingface.co/mradermacher/Qwen3.5-4B-abliterated-GGUF/resolve/main/Qwen3.5-4B-abliterated.Q4_K_M.gguf",
+          "sha256": "1ec0b30c75b49223c82542caf2635a7af4edcda80d8c89759cc000d3871bf48e"
+        },
+        {
+          "id": "qwen35-4b-kaine-q4",
+          "title": "KAINE Qwen 3.5 4B · Q4_K_M",
+          "file": "KAINE-Qwen3.5-4B-abliterated.Q4_K_M.gguf",
+          "bytes": 2783446336,
+          "approx": false,
+          "ramGb": 6,
+          "source": "https://huggingface.co/kaineone/Qwen3.5-4B-abliterated-GGUF/resolve/main/KAINE-Qwen3.5-4B-abliterated.Q4_K_M.gguf",
+          "sha256": "6505da672f3e1a5946bc7c4675328a06f79280b470b9fe6db63833a3df2e1d43"
+        },
+        {
+          "id": "qwen25-7b-q4",
+          "title": "Qwen 2.5 7B Instruct · Q4_K_M",
+          "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "bytes": 4683074240,
+          "approx": false,
+          "ramGb": 8,
+          "source": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "sha256": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423"
+        },
+        {
+          "id": "llama31-8b-q4",
+          "title": "Llama 3.1 8B Instruct · Q4_K_M",
+          "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+          "bytes": 4920739232,
+          "approx": false,
+          "ramGb": 8,
+          "source": "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+          "sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c"
+        },
+        {
+          "id": "katarau-9b-q4",
+          "title": "Katarau 9B RP · Q4_K_M",
+          "file": "Katarau-9B-Q4_K_M.gguf",
+          "bytes": 5629101024,
+          "approx": false,
+          "ramGb": 9,
+          "source": "https://huggingface.co/katafiek/Katarau-9B-ru-RP-nsfw-GGUF/resolve/main/Katarau-9B-Q4_K_M.gguf",
+          "sha256": "ea003870e33446d2745c861b10e4b58c069d77ea6a4b2cff109f2228815aad3a"
+        },
+        {
+          "id": "qwen35-9b-q4",
+          "title": "Qwen 3.5 9B abliterated · Q4_K_M",
+          "file": "Qwen3.5-9B-abliterated.i1-Q4_K_M.gguf",
+          "bytes": 5627045504,
+          "approx": false,
+          "ramGb": 9,
+          "source": "https://huggingface.co/mradermacher/Qwen3.5-9B-abliterated-i1-GGUF/resolve/main/Qwen3.5-9B-abliterated.i1-Q4_K_M.gguf",
+          "sha256": "17bd312cb6667415fdd4e8ae7f1e38288de4a502e7622d0d8bb76f0511e7c189"
         }
       ]
     },
@@ -33,21 +93,21 @@
           "id": "bge-m3-q4",
           "title": "BGE-M3 · Q4_K_M — машина до 8 ГБ",
           "file": "bge-m3-Q4_K_M.gguf",
-          "bytes": 438000000,
-          "approx": true,
+          "bytes": 437778496,
+          "approx": false,
           "ramGb": 2,
           "source": "https://huggingface.co/gpustack/bge-m3-GGUF/resolve/main/bge-m3-Q4_K_M.gguf",
-          "sha256": ""
+          "sha256": "6d39681b26c61279ac1f82db35a04a05009e94c415b51c858ff571489a82fc06"
         },
         {
           "id": "bge-m3-q8",
           "title": "BGE-M3 · Q8_0 — машина 8–16 ГБ",
           "file": "bge-m3-Q8_0.gguf",
-          "bytes": 634000000,
-          "approx": true,
+          "bytes": 634553760,
+          "approx": false,
           "ramGb": 2,
           "source": "https://huggingface.co/gpustack/bge-m3-GGUF/resolve/main/bge-m3-Q8_0.gguf",
-          "sha256": ""
+          "sha256": "950f4a8e5e19477a6d3c26d2f162233c20002c601f75e4b002e3239997821167"
         },
         {
           "id": "bge-m3-f16",
@@ -75,6 +135,16 @@
           "ramGb": 5,
           "source": "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
           "sha256": "9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94"
+        },
+        {
+          "id": "qwen25-7b-q4",
+          "title": "Qwen 2.5 7B Instruct · Q4_K_M — вдумчивее",
+          "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "bytes": 4683074240,
+          "approx": false,
+          "ramGb": 8,
+          "source": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "sha256": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423"
         }
       ]
     }

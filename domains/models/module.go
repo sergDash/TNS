@@ -18,7 +18,7 @@ type module struct {
 }
 
 // New отдаёт модуль для точки сборки. settings — раздел
-// modules.settings.models: файл каталога, каталог ролей и каталог станка.
+// modules.settings.models: файл каталога, каталог ролей и каталог машины.
 func New(settings json.RawMessage) (core.Module, error) {
 	cfg := Config{}
 	if err := config.DecodeSection(settings, &cfg); err != nil {

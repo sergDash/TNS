@@ -52,9 +52,9 @@ type Slot struct {
 	Variants []Variant `json:"variants"`
 }
 
-// Engine — станок: llama-server из закреплённого релиза llama.cpp. Бинарник
+// Machine — машина: llama-server из закреплённого релиза llama.cpp. Бинарник
 // не входит в поставку: он скачивается один раз и живёт в каталоге bin.
-type Engine struct {
+type Machine struct {
 	Title   string `json:"title"`
 	File    string `json:"file"`
 	Version string `json:"version"`
@@ -62,10 +62,10 @@ type Engine struct {
 	SHA256  string `json:"sha256"`
 }
 
-// Catalog — каталог поставки: станок и роли. Порядок ролей в файле задаёт
+// Catalog — каталог поставки: машина и роли. Порядок ролей в файле задаёт
 // порядок карточек на экране, поэтому он значим.
 type Catalog struct {
-	Engine Engine `json:"engine"`
+	Machine Machine `json:"machine"`
 	Roles  []Slot `json:"roles"`
 }
 
@@ -94,8 +94,8 @@ func LoadCatalog(path string) (Catalog, error) {
 // validate проверяет каталог целиком: экран считает по нему итог, поэтому
 // неполная запись должна останавливать запуск, а не показывать ноль.
 func (c Catalog) validate() error {
-	if c.Engine.File == "" {
-		return fmt.Errorf("станок: не указан файл")
+	if c.Machine.File == "" {
+		return fmt.Errorf("машина: не указан файл")
 	}
 	if len(c.Roles) == 0 {
 		return fmt.Errorf("нет ни одной роли")
