@@ -186,7 +186,7 @@ $(function () {
         }
 
         rows.push(progressRow(state.models.server.title, state.models.server.key,
-            state.models.server.found, 0, live));
+            state.models.server.found, state.models.server.bytes, live));
 
         for (i = 0; i < state.models.slots.length; i++) {
             var slot = state.models.slots[i];
@@ -294,10 +294,9 @@ $(function () {
         var paths = [];
 
         // Сервер идёт первым: он ложится отдельно от моделей, и по списку
-        // путей видно, куда именно.
-        if (!state.models.server.found) {
-            paths.push({ title: 'Сервер', path: state.models.server.path });
-        }
+        // путей видно, куда именно. Показывается и установленный: адрес
+        // от этого не меняется, а блок должен быть на месте всегда.
+        paths.push({ title: 'Сервер', path: state.models.server.path });
 
         for (var i = 0; i < state.models.slots.length; i++) {
             var slot = state.models.slots[i];
@@ -316,12 +315,12 @@ $(function () {
                 continue;
             }
 
-            // Путь показывается только для того, что действительно будет
-            // скачано: у установленного файла это уже не план, а факт.
             if (!chosen.installed) {
                 bytes += chosen.bytes;
-                paths.push({ title: slot.title, path: chosen.path });
             }
+            // Путь показывается всегда: блок «Куда» — это адрес файла,
+            // а не список того, что осталось скачать.
+            paths.push({ title: slot.title, path: chosen.path });
             if (slot.role === 'embed') {
                 resident = chosen.ramGb;
             } else if (chosen.ramGb > generator) {

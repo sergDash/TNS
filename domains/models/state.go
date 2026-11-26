@@ -3,6 +3,7 @@ package models
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -68,6 +69,10 @@ type serverState struct {
 	Found   bool   `json:"found"`
 	Path    string `json:"path"`
 	Version string `json:"version"`
+	// Bytes — сколько сервер занимает на диске: сам бинарник и его
+	// библиотеки. Размер архива после установки уже не узнать, а место
+	// на диске игроку нужно то же самое.
+	Bytes int64 `json:"bytes"`
 }
 
 type slotState struct {
@@ -105,6 +110,7 @@ func snapshotOf(cfg Config, catalog Catalog) snapshot {
 			Version: catalog.Server.Version,
 			Path:    serverPath(cfg, catalog),
 			Found:   serverFound(cfg, catalog),
+			Bytes:   serverSize(cfg, catalog),
 		},
 	}
 
@@ -151,6 +157,32 @@ func serverPath(cfg Config, catalog Catalog) string {
 func serverFound(cfg Config, catalog Catalog) bool {
 	info, err := os.Stat(serverPath(cfg, catalog))
 	return err == nil && info.Mode().Perm()&0o111 != 0
+}
+
+// serverSize считает, сколько занимают сервер и его библиотеки в каталоге
+// bin. Посторонние файлы (собранное приложение) не учитываются.
+func serverSize(cfg Config, catalog Catalog) int64 {
+	entries, err := os.ReadDir(cfg.Bin)
+	if err != nil {
+		return 0
+	}
+
+	var total int64
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name != catalog.Server.File && !strings.HasPrefix(name, "lib") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		total += info.Size()
+	}
+	return total
 }
 
 // variantPath — где лежит файл варианта роли.
