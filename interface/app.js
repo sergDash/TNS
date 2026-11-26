@@ -252,14 +252,24 @@ $(function () {
             ratings: chips(data.ratings, rating),
             title: '', slug: '', synopsis: '',
             socialOrder: order, censorship: rating, travelMode: mode,
-            errors: {}
+            errors: emptyErrors()
+        };
+    }
+
+    // emptyErrors — полный набор полей анкеты с пустыми причинами. Строка
+    // причины на экране есть всегда, поэтому ключи должны существовать:
+    // иначе шаблон выведет «undefined» вместо пустоты.
+    function emptyErrors() {
+        return {
+            title: '', slug: '', synopsis: '',
+            genres: '', social_order: '', travel_mode: '', censorship: ''
         };
     }
 
     // fieldErrors переводит отказ модуля в подсветку полей: сервер называет
     // поле и причину, форма показывает причину под нужным вводом.
     function fieldErrors(error) {
-        var out = {};
+        var out = emptyErrors();
 
         if (!error.data || !error.data.fields) {
             return out;
@@ -526,7 +536,7 @@ $(function () {
     // показывает причину под каждым, а не одну общую строку.
     view.method('createWorld', function (state) {
         return function () {
-            state.world.errors = {};
+            state.world.errors = emptyErrors();
             state.failure = '';
 
             call('/api/world', {
@@ -546,8 +556,15 @@ $(function () {
                     state.created = data.world;
                 })
                 .catch(function (error) {
-                    state.world.errors = fieldErrors(error);
-                    state.failure = error.message;
+                    var fields = fieldErrors(error);
+                    state.world.errors = fields;
+
+                    // Отказ по полям объясняется под вводами: общая плашка
+                    // сверху только сдвинула бы форму. Плашка остаётся для
+                    // отказов, у которых полей нет.
+                    if (!error.data || !error.data.fields) {
+                        state.failure = error.message;
+                    }
                 });
         };
     });

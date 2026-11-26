@@ -148,14 +148,14 @@
                     <div class="field">
                         <span class="label">Название мира</span>
                         <input class="input" w-bind="world.title" placeholder="Тёмное королевство">
-                        <p class="reason" w-if="world.errors.title">{{ world.errors.title }}</p>
+                        <p class="reason">{{ world.errors.title }}</p>
                     </div>
 
                     <div class="field">
                         <span class="label">Адрес мира</span>
                         <input class="input" w-bind="world.slug" placeholder="dark-realm">
                         <p class="hint">Латиницей, цифрами и дефисом: так мир называется в файлах.</p>
-                        <p class="reason" w-if="world.errors.slug">{{ world.errors.slug }}</p>
+                        <p class="reason">{{ world.errors.slug }}</p>
                     </div>
 
                     <div class="field">
@@ -163,7 +163,7 @@
                         <textarea class="input" rows="3" w-bind="world.synopsis"
                                   placeholder="Король умер, наследник пропал. Страна ждёт."></textarea>
                         <p class="hint">Одно-три предложения: это не план, а заявка.</p>
-                        <p class="reason" w-if="world.errors.synopsis">{{ world.errors.synopsis }}</p>
+                        <p class="reason">{{ world.errors.synopsis }}</p>
                     </div>
 
                     <div class="field">
@@ -173,7 +173,7 @@
                                   w-class="{ 'on': item.on }" data-value="{{ item.title }}"
                                   w-on="click:toggleGenre">{{ item.title }}</span>
                         </div>
-                        <p class="reason" w-if="world.errors.genres">{{ world.errors.genres }}</p>
+                        <p class="reason">{{ world.errors.genres }}</p>
                     </div>
 
                     <div class="field">
@@ -183,7 +183,7 @@
                                   w-class="{ 'on': item.on }" data-list="orders" data-value="{{ item.title }}"
                                   w-on="click:pickOne">{{ item.title }}</span>
                         </div>
-                        <p class="reason" w-if="world.errors.social_order">{{ world.errors.social_order }}</p>
+                        <p class="reason">{{ world.errors.social_order }}</p>
                     </div>
 
                     <div class="field">
@@ -193,7 +193,7 @@
                                   w-class="{ 'on': item.on }" data-list="modes" data-value="{{ item.title }}"
                                   w-on="click:pickOne">{{ item.title }}</span>
                         </div>
-                        <p class="reason" w-if="world.errors.travel_mode">{{ world.errors.travel_mode }}</p>
+                        <p class="reason">{{ world.errors.travel_mode }}</p>
                     </div>
 
                     <div class="field">
@@ -204,7 +204,7 @@
                                   w-on="click:pickOne">{{ item.title }}</span>
                         </div>
                         <p class="hint">Рейтинг решает, какие слова не попадут в текст.</p>
-                        <p class="reason" w-if="world.errors.censorship">{{ world.errors.censorship }}</p>
+                        <p class="reason">{{ world.errors.censorship }}</p>
                     </div>
 
                     <div class="line">
