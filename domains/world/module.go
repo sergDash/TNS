@@ -14,22 +14,29 @@ import (
 	"tns/engine/core"
 )
 
-// Config — настройки модуля: где лежат перечни анкеты и каталог миров.
+// Config — настройки модуля: где лежат схема мира, выбранные значения и
+// каталог миров.
 type Config struct {
-	// Lists — файл перечней: жанры, строи, режимы походов, рейтинги, языки.
-	Lists string `json:"lists"`
+	// Schema — схема канона и формы героя.
+	Schema string `json:"schema"`
+	// Config — файл выбранного: включённые языки и умолчания героя.
+	Config string `json:"config"`
 	// Dir — каталог миров: <dir>/<адрес мира>/world.db.
 	Dir string `json:"dir"`
 }
 
 const (
-	defaultLists = "config/world.json"
-	defaultDir   = "world_db/worlds"
+	defaultSchema = "schemas/world.schema.json"
+	defaultConfig = "config/world.json"
+	defaultDir    = "world_db/worlds"
 )
 
 func (c Config) withDefaults() Config {
-	if c.Lists == "" {
-		c.Lists = defaultLists
+	if c.Schema == "" {
+		c.Schema = defaultSchema
+	}
+	if c.Config == "" {
+		c.Config = defaultConfig
 	}
 	if c.Dir == "" {
 		c.Dir = defaultDir
@@ -52,7 +59,7 @@ func New(settings json.RawMessage) (core.Module, error) {
 	}
 	cfg = cfg.withDefaults()
 
-	lists, err := LoadLists(cfg.Lists)
+	lists, err := LoadWorld(cfg.Schema, cfg.Config)
 	if err != nil {
 		return nil, fmt.Errorf("world: %w", err)
 	}

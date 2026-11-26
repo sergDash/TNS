@@ -222,7 +222,7 @@ func TestModuleSettings(t *testing.T) {
 func TestBuildModulesSettings(t *testing.T) {
 	settings := map[string]json.RawMessage{
 		"models": json.RawMessage(`{"catalog":"../../config/models.json"}`),
-		"world":  json.RawMessage(`{"lists":"../../config/world.json"}`),
+		"world":  json.RawMessage(`{"schema":"../../schemas/world.schema.json","config":"../../config/world.json"}`),
 	}
 
 	modules, err := buildModules(deps{settings: settings})

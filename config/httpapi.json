@@ -33,7 +33,8 @@
         "bin": "bin"
       },
       "world": {
-        "lists": "config/world.json",
+        "schema": "schemas/world.schema.json",
+        "config": "config/world.json",
         "dir": "world_db/worlds"
       }
     }

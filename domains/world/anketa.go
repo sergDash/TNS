@@ -2,14 +2,13 @@
 // мира в его собственной базе. Анкета задаёт мир, а не книгу: имя, адрес,
 // о чём история, жанры, строй и рейтинг.
 //
-// Перечни лежат данными в config/world.json: канонические списки жанров и
-// строёв правятся без пересборки, а код отвечает за форму и проверку.
+// Канонические перечни (жанры, строи, сословия) описаны схемой
+// schemas/world.schema.json, а config/world.json хранит выбранное: какие
+// языки включены и чем заполнены поля героя. Код отвечает за проверку.
 package world
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -25,31 +24,6 @@ type Lists struct {
 	// Hero — форма героя. Пустой список полей значит, что отдельного шага
 	// героя нет: вопрос о нём ещё открыт.
 	Hero Hero `json:"hero"`
-}
-
-// LoadLists читает перечни из файла. Неизвестные ключи запрещены: опечатка
-// в имени списка не должна тихо давать пустой выбор на экране.
-func LoadLists(path string) (Lists, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return Lists{}, fmt.Errorf("перечни мира: %w", err)
-	}
-	defer f.Close()
-
-	dec := json.NewDecoder(f)
-	dec.DisallowUnknownFields()
-
-	var lists Lists
-	if err := dec.Decode(&lists); err != nil {
-		return Lists{}, fmt.Errorf("перечни мира %s: %w", path, err)
-	}
-	if len(lists.Genres) == 0 || len(lists.SocialOrders) == 0 || len(lists.Ratings) == 0 {
-		return Lists{}, fmt.Errorf("перечни мира %s: пусты жанры, строи или рейтинги", path)
-	}
-	if err := lists.Hero.validateForm(); err != nil {
-		return Lists{}, fmt.Errorf("перечни мира %s: %w", path, err)
-	}
-	return lists, nil
 }
 
 // Anketa — ответы игрока о мире. Полей ровно столько, сколько спрашивает

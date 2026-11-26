@@ -2,6 +2,7 @@ package world
 
 import (
 	"database/sql"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -46,19 +47,6 @@ func validHeroAnswers() map[string]string {
 	return map[string]string{"name": "Илья", "estate": "купец", "books": "Азимов"}
 }
 
-// TestShippedLists — перечни поставки читаются и не пусты: экран берёт
-// варианты из них, а не из кода.
-func TestShippedLists(t *testing.T) {
-	lists, err := LoadLists(filepath.Join("..", "..", "config", "world.json"))
-	if err != nil {
-		t.Fatalf("перечни: %v", err)
-	}
-	if len(lists.Genres) < 10 || len(lists.SocialOrders) < 5 || len(lists.Ratings) != 3 {
-		t.Fatalf("перечни неполны: жанров %d, строёв %d, рейтингов %d",
-			len(lists.Genres), len(lists.SocialOrders), len(lists.Ratings))
-	}
-}
-
 // TestValidateGood — полная анкета проходит проверку.
 func TestValidateGood(t *testing.T) {
 	if ve := testLists().Validate(validAnketa()); ve != nil {
@@ -70,9 +58,9 @@ func TestValidateGood(t *testing.T) {
 // форма подсвечивает ввод, а не показывает одну общую строку.
 func TestValidateFields(t *testing.T) {
 	cases := []struct {
-		name  string
+		name   string
 		change func(*Anketa)
-		field string
+		field  string
 	}{
 		{"пустое название", func(a *Anketa) { a.Title = "  " }, "title"},
 		{"пустой адрес", func(a *Anketa) { a.Slug = "" }, "slug"},
@@ -238,67 +226,68 @@ func TestCreateHero(t *testing.T) {
 	}
 }
 
-// TestShippedHeroForm — форма героя есть в конфиге поставки: пока вопрос о
-// её составе открыт, она живёт данными и должна быть непустой.
-func TestShippedHeroForm(t *testing.T) {
-	lists, err := LoadLists(filepath.Join("..", "..", "config", "world.json"))
+// TestShippedSchema — канон берётся из схемы, выбранное из конфига: размеры
+// перечней, порядок полей героя и умолчания должны совпасть с поставкой.
+func TestShippedSchema(t *testing.T) {
+	lists, err := LoadWorld(
+		filepath.Join("..", "..", "schemas", "world.schema.json"),
+		filepath.Join("..", "..", "config", "world.json"),
+	)
 	if err != nil {
-		t.Fatalf("перечни: %v", err)
+		t.Fatalf("мир: %v", err)
 	}
-	if len(lists.Hero.Fields) == 0 {
-		t.Fatal("в конфиге нет полей героя")
+
+	if len(lists.Genres) != 30 || len(lists.SocialOrders) != 18 || len(lists.Ratings) != 3 {
+		t.Fatalf("канон: жанров %d, строёв %d, рейтингов %d",
+			len(lists.Genres), len(lists.SocialOrders), len(lists.Ratings))
 	}
+	if len(lists.Langs) != 1 || lists.Langs[0] != "ru" {
+		t.Fatalf("языки: %v", lists.Langs)
+	}
+
+	var order []string
 	for _, f := range lists.Hero.Fields {
-		if f.ID == "" || f.Title == "" {
-			t.Fatalf("поле героя без имени: %+v", f)
+		order = append(order, f.ID)
+	}
+	want := []string{"name", "estate", "arrival", "origin", "books"}
+	if len(order) != len(want) {
+		t.Fatalf("поля героя: %v", order)
+	}
+	for i := range want {
+		if order[i] != want[i] {
+			t.Fatalf("порядок полей героя: %v", order)
 		}
-		if f.Type == "choice" && len(f.Options) == 0 {
-			t.Fatalf("поле %s: выбор без вариантов", f.ID)
-		}
+	}
+
+	estate := heroFieldByID(lists.Hero, "estate")
+	if estate == nil || estate.Type != "choice" || estate.Default != "крестьянин" {
+		t.Fatalf("поле estate: %+v", estate)
+	}
+	if len(estate.Options) != 6 {
+		t.Fatalf("сословий: %d", len(estate.Options))
 	}
 }
 
-// TestHeroFormRejected — форма героя проверяется по тем же правилам, что
-// описаны в schemas/hero.schema.json: неизвестный вид, выбор без вариантов,
-// умолчание вне списка и повтор имени останавливают запуск.
-func TestHeroFormRejected(t *testing.T) {
-	cases := []struct {
-		name string
-		hero Hero
-	}{
-		{"выбор без вариантов", Hero{Fields: []HeroField{{ID: "estate", Title: "Сословие", Type: "choice"}}}},
-		{"текст с вариантами", Hero{Fields: []HeroField{{ID: "name", Title: "Имя", Type: "text", Options: []string{"а"}}}}},
-		{"умолчание вне списка", Hero{Fields: []HeroField{{ID: "estate", Title: "Сословие", Type: "choice", Options: []string{"купец"}, Default: "аристократ"}}}},
-		{"повтор имени", Hero{Fields: []HeroField{{ID: "name", Title: "Имя", Type: "text"}, {ID: "name", Title: "Ещё имя", Type: "text"}}}},
-		{"неизвестный вид", Hero{Fields: []HeroField{{ID: "name", Title: "Имя", Type: "select"}}}},
+// TestConfigOutsideCanon — значение конфига, которого нет в схеме,
+// останавливает запуск: это опечатка, а не выбор.
+func TestConfigOutsideCanon(t *testing.T) {
+	dir := t.TempDir()
+
+	cases := []struct{ name, body string }{
+		{"язык вне канона", `{"langs":["tlh"],"hero":{"defaults":{}}}`},
+		{"умолчание вне списка", `{"langs":["ru"],"hero":{"defaults":{"estate":"барон"}}}`},
+		{"умолчание неизвестного поля", `{"langs":["ru"],"hero":{"defaults":{"nickname":"x"}}}`},
+		{"без языков", `{"langs":[],"hero":{"defaults":{}}}`},
 	}
 
-	for _, c := range cases {
-		if err := c.hero.validateForm(); err == nil {
-			t.Fatalf("%s: форма принята", c.name)
+	for i, c := range cases {
+		path := filepath.Join(dir, "config-"+string(rune('a'+i))+".json")
+		if err := os.WriteFile(path, []byte(c.body), 0o644); err != nil {
+			t.Fatal(err)
 		}
-	}
-}
-
-// TestShippedHeroForm проверяет и умолчания: у выбора умолчание лежит внутри
-// списка, иначе форма покажет значение, которого нет среди вариантов.
-func TestShippedHeroFormDefaults(t *testing.T) {
-	lists, err := LoadLists(filepath.Join("..", "..", "config", "world.json"))
-	if err != nil {
-		t.Fatalf("перечни: %v", err)
-	}
-	for _, f := range lists.Hero.Fields {
-		if f.Type != "choice" || f.Default == "" {
-			continue
-		}
-		found := false
-		for _, opt := range f.Options {
-			if opt == f.Default {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatalf("поле %s: умолчание %q не среди вариантов", f.ID, f.Default)
+		_, err := LoadWorld(filepath.Join("..", "..", "schemas", "world.schema.json"), path)
+		if err == nil {
+			t.Fatalf("%s: настройки приняты", c.name)
 		}
 	}
 }
