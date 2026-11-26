@@ -257,3 +257,48 @@ func TestShippedHeroForm(t *testing.T) {
 		}
 	}
 }
+
+// TestHeroFormRejected — форма героя проверяется по тем же правилам, что
+// описаны в schemas/hero.schema.json: неизвестный вид, выбор без вариантов,
+// умолчание вне списка и повтор имени останавливают запуск.
+func TestHeroFormRejected(t *testing.T) {
+	cases := []struct {
+		name string
+		hero Hero
+	}{
+		{"выбор без вариантов", Hero{Fields: []HeroField{{ID: "estate", Title: "Сословие", Type: "choice"}}}},
+		{"текст с вариантами", Hero{Fields: []HeroField{{ID: "name", Title: "Имя", Type: "text", Options: []string{"а"}}}}},
+		{"умолчание вне списка", Hero{Fields: []HeroField{{ID: "estate", Title: "Сословие", Type: "choice", Options: []string{"купец"}, Default: "аристократ"}}}},
+		{"повтор имени", Hero{Fields: []HeroField{{ID: "name", Title: "Имя", Type: "text"}, {ID: "name", Title: "Ещё имя", Type: "text"}}}},
+		{"неизвестный вид", Hero{Fields: []HeroField{{ID: "name", Title: "Имя", Type: "select"}}}},
+	}
+
+	for _, c := range cases {
+		if err := c.hero.validateForm(); err == nil {
+			t.Fatalf("%s: форма принята", c.name)
+		}
+	}
+}
+
+// TestShippedHeroForm проверяет и умолчания: у выбора умолчание лежит внутри
+// списка, иначе форма покажет значение, которого нет среди вариантов.
+func TestShippedHeroFormDefaults(t *testing.T) {
+	lists, err := LoadLists(filepath.Join("..", "..", "config", "world.json"))
+	if err != nil {
+		t.Fatalf("перечни: %v", err)
+	}
+	for _, f := range lists.Hero.Fields {
+		if f.Type != "choice" || f.Default == "" {
+			continue
+		}
+		found := false
+		for _, opt := range f.Options {
+			if opt == f.Default {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("поле %s: умолчание %q не среди вариантов", f.ID, f.Default)
+		}
+	}
+}

@@ -282,7 +282,7 @@ $(function () {
                 hint: source[i].hint,
                 type: source[i].type,
                 options: source[i].options || [],
-                value: '',
+                value: source[i].default || '',
                 error: ''
             });
         }

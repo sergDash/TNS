@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tns.local/httpapi.schema.json",
+  "title": "Настройки приложения",
+  "description": "Форма config/httpapi.json: адрес службы, интерфейс, хранилище, очередь, службы, расписание, модули и журнал.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["server", "interface", "store"],
+  "properties": {
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["addr"],
+      "properties": {
+        "addr": {
+          "type": "string",
+          "minLength": 1,
+          "description": "адрес HTTP-службы, например 127.0.0.1:8720"
+        },
+        "open": {
+          "type": "boolean",
+          "default": false,
+          "description": "открыть страницу в браузере после запуска"
+        },
+        "readHeaderTimeout": {
+          "type": "string",
+          "description": "предел чтения заголовков запроса, например 5s; пусто — по умолчанию"
+        },
+        "idleTimeout": {
+          "type": "string",
+          "description": "предел простоя соединения, например 60s; пусто — по умолчанию"
+        },
+        "maxBody": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "предел тела запроса в байтах; ноль — без предела"
+        }
+      }
+    },
+    "interface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dir"],
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "каталог статики интерфейса"
+        }
+      }
+    },
+    "store": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "файл хранилища: в нём очередь переживает перезапуск"
+        }
+      }
+    },
+    "jobs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keep": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "сколько завершённых работ держать в очереди; ноль — все"
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "restart": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "after": {
+              "type": "string",
+              "description": "пауза перед перезапуском отказавшей службы, например 1s"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "сколько раз пробовать перезапуск; ноль — не перезапускать"
+            }
+          }
+        }
+      }
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "type": "array",
+          "description": "пороги простоя: какой класс работы допустим после какого простоя",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["after", "class"],
+            "properties": {
+              "after": {
+                "type": "string",
+                "description": "простой, например 10m"
+              },
+              "class": {
+                "type": "string",
+                "enum": ["interactive", "background"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disabled", "settings"],
+      "properties": {
+        "disabled": {
+          "type": "array",
+          "description": "выключенные модули; пустой список — работают все",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "settings": {
+          "type": "object",
+          "description": "разделы настроек по имени модуля; форму раздела знает сам модуль",
+          "additionalProperties": true
+        }
+      }
+    },
+    "journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "файл журнала работы"
+        },
+        "maxSize": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "размер файла, после которого начинается новый"
+        },
+        "keep": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "сколько прошлых файлов журнала держать"
+        }
+      }
+    }
+  }
+}

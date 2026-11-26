@@ -46,6 +46,9 @@ func LoadLists(path string) (Lists, error) {
 	if len(lists.Genres) == 0 || len(lists.SocialOrders) == 0 || len(lists.Ratings) == 0 {
 		return Lists{}, fmt.Errorf("перечни мира %s: пусты жанры, строи или рейтинги", path)
 	}
+	if err := lists.Hero.validateForm(); err != nil {
+		return Lists{}, fmt.Errorf("перечни мира %s: %w", path, err)
+	}
 	return lists, nil
 }
 

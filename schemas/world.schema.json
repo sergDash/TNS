@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tns.local/world.schema.json",
+  "title": "Перечни мира",
+  "description": "Форма config/world.json: канонические списки, из которых игрок выбирает при создании мира, и форма героя.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["genres", "social_orders", "travel_modes", "ratings", "langs", "hero"],
+  "properties": {
+    "genres": {
+      "$ref": "#/$defs/list",
+      "description": "жанры мира"
+    },
+    "social_orders": {
+      "$ref": "#/$defs/list",
+      "description": "строи мира"
+    },
+    "travel_modes": {
+      "$ref": "#/$defs/list",
+      "description": "режимы походов: реальная карта, вымышленная или смешанная"
+    },
+    "economy_mods": {
+      "$ref": "#/$defs/list",
+      "description": "экономические модификаторы мира"
+    },
+    "ratings": {
+      "$ref": "#/$defs/list",
+      "description": "возрастные рейтинги: от них зависит словарь запрещённых слов"
+    },
+    "langs": {
+      "$ref": "#/$defs/list",
+      "description": "языки мира; первый пакет локализации русский"
+    },
+    "hero": {
+      "$ref": "hero.schema.json"
+    }
+  },
+  "$defs": {
+    "list": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
