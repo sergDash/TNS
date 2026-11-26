@@ -38,7 +38,7 @@ $(function () {
         ok: false,
         status: 'проверяем связь с сервером…',
         version: '',
-        models: { machine: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
+        models: { server: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
         plan: { bytes: 0, text: '—', ramGb: 0, ramText: '—', enough: true },
         diskText: '—',
         failure: ''
@@ -107,7 +107,7 @@ $(function () {
                 variants: variants
             });
         }
-        return { machine: data.machine, slots: slots, disk: data.disk };
+        return { server: data.server, slots: slots, disk: data.disk };
     }
 
     // recomputePlan считает итог по выбору: сколько предстоит скачать и
@@ -150,10 +150,10 @@ $(function () {
         if (bytes > 0) {
             parts.push(humanBytes(bytes));
         }
-        // Архив машины сервер ещё не мерил: его размер уточняется при
+        // Размер архива сервера ещё неизвестен: он уточняется при
         // скачивании, поэтому в итоге он назван словом, а не числом.
-        if (!state.models.machine.found) {
-            parts.push('машина');
+        if (!state.models.server.found) {
+            parts.push('сервер');
         }
 
         state.plan.bytes = bytes;
