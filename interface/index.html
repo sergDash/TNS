@@ -90,6 +90,14 @@
                     </p>
                 </div>
 
+                <div class="paths" w-if="plan.paths.length">
+                    <p class="label">Куда</p>
+                    <p class="path" w-for="row in plan.paths traceby row.title">
+                        <span class="title">{{ row.title }}</span>
+                        <code>{{ row.path }}</code>
+                    </p>
+                </div>
+
                 <div class="downloads" w-if="downloads.items.length">
                     <p class="label">Загрузка</p>
                     <div class="download" w-for="row in downloads.items traceby row.key">

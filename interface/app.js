@@ -40,7 +40,7 @@ $(function () {
 
     var view = $('#app').state({
         models: { server: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
-        plan: { bytes: 0, text: '—', ramGb: 0, ramText: '—', enough: true },
+        plan: { bytes: 0, text: '—', ramGb: 0, ramText: '—', enough: true, paths: [] },
         downloads: { active: false, items: [] },
         diskText: '—',
         failure: ''
@@ -95,6 +95,7 @@ $(function () {
                 variants.push({
                     id: v.id,
                     title: v.title,
+                    path: v.path,
                     bytes: v.bytes,
                     ramGb: v.ramGb,
                     installed: v.installed,
@@ -152,6 +153,13 @@ $(function () {
         var bytes = 0;
         var resident = 0;
         var generator = 0;
+        var paths = [];
+
+        // Сервер идёт первым: он ложится отдельно от моделей, и по списку
+        // путей видно, куда именно.
+        if (!state.models.server.found) {
+            paths.push({ title: 'Сервер', path: state.models.server.path });
+        }
 
         for (var i = 0; i < state.models.slots.length; i++) {
             var slot = state.models.slots[i];
@@ -170,8 +178,11 @@ $(function () {
                 continue;
             }
 
+            // Путь показывается только для того, что действительно будет
+            // скачано: у установленного файла это уже не план, а факт.
             if (!chosen.installed) {
                 bytes += chosen.bytes;
+                paths.push({ title: slot.title, path: chosen.path });
             }
             if (slot.role === 'embed') {
                 resident = chosen.ramGb;
@@ -195,6 +206,7 @@ $(function () {
         state.plan.ramGb = resident + generator;
         state.plan.ramText = humanRAM(resident + generator);
         state.plan.enough = state.models.disk.freeBytes >= bytes;
+        state.plan.paths = paths;
     }
 
     // call разбирает конверт и отдаёт только result; ошибка становится
