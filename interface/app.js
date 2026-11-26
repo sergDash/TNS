@@ -41,7 +41,7 @@ $(function () {
     var view = $('#app').state({
         step: 'models',
         models: { server: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
-        plan: { bytes: 0, text: '—', ramGb: 0, ramText: '—', enough: true, paths: [] },
+        plan: { bytes: 0, text: '—', status: '—', ramGb: 0, ramText: '—', enough: true, paths: [] },
         world: {
             genres: [], orders: [], ratings: [], modes: [],
             title: '', slug: '', synopsis: '',
@@ -134,11 +134,17 @@ $(function () {
 
         for (var i = 0; i < data.items.length; i++) {
             var item = data.items[i];
+            // «Готово» рисуется полной полосой даже когда размер неизвестен
+            // (у сервера архив уже удалён, и его байтов не осталось).
             var percent = 0;
-            var text = humanBytes(item.done);
+            var text = '';
 
-            if (item.total > 0) {
+            if (item.state === 'готово') {
+                percent = 100;
+            } else if (item.total > 0) {
                 percent = Math.round(item.done * 100 / item.total);
+            }
+            if (item.total > 0) {
                 text = humanBytes(item.done) + ' из ' + humanBytes(item.total);
             }
             items.push({
@@ -284,6 +290,7 @@ $(function () {
 
         state.plan.bytes = bytes;
         state.plan.text = parts.length ? parts.join(' + ') : 'всё уже на месте';
+        state.plan.status = parts.length ? 'скачать ' + parts.join(' + ') : 'всё на месте';
         state.plan.ramGb = resident + generator;
         state.plan.ramText = humanRAM(resident + generator);
         state.plan.enough = state.models.disk.freeBytes >= bytes;

@@ -76,14 +76,20 @@ func (s *progressStore) fail(key string, err error) {
 	s.items[key] = item
 }
 
-// reset очищает прошлые строки: новый запуск показывает только свои
-// загрузки, а не «готово» от предыдущего.
-func (s *progressStore) reset() {
+// set заменяет строки целиком: список показывает выбранные модели и
+// сервер, а не историю прошлых запусков. Порядок строк задаёт вызывающий —
+// поэтому полоса сервера всегда остаётся первой.
+func (s *progressStore) set(items []progress) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.items = map[string]progress{}
-	s.order = nil
+	s.items = make(map[string]progress, len(items))
+	s.order = make([]string, 0, len(items))
+
+	for _, item := range items {
+		s.items[item.Key] = item
+		s.order = append(s.order, item.Key)
+	}
 }
 
 // snapshot отдаёт строки в порядке постановки и признак «что-то ещё идёт».

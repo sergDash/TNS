@@ -88,7 +88,6 @@
                 </div>
 
                 <div class="plan">
-                    <p><span class="hint">К скачиванию</span> {{ plan.text }}</p>
                     <p><span class="hint">Память при работе</span> ≈ {{ plan.ramText }}</p>
                     <p w-class="{ 'error': !plan.enough }">
                         <span class="hint">Свободно на диске</span> {{ diskText }}
@@ -112,24 +111,18 @@
                             <span class="meta">{{ row.state }}</span>
                         </div>
                         <div class="bar"><div class="fill" style="width: {{ row.percent }}%"></div></div>
-                        <p class="meta">{{ row.progressText }}</p>
+                        <p class="meta" w-if="row.progressText">{{ row.progressText }}</p>
                         <p class="meta error" w-if="row.error">{{ row.error }}</p>
                     </div>
                 </div>
 
-                <div class="line">
-                    <button class="button" w-if="!models.ready" w-on="click:startDownload"
+                <div class="actions">
+                    <button class="button" w-on="click:startDownload"
                             w-disabled="downloads.active || (!plan.bytes && models.server.found)">
-                        Начать скачивание
+                        Скачать выбранные
                     </button>
-                    <button class="button" w-if="models.ready" w-on="click:toWorld">Далее</button>
-                    <span class="hint" w-if="!models.ready">
-                        Скачивание идёт в очереди: страницу можно закрыть,
-                        а после возврата оно продолжится с того же места.
-                    </span>
-                    <span class="hint" w-if="models.ready">
-                        Всё на месте — можно переходить к настройке мира.
-                    </span>
+                    <span class="status" w-class="{ 'ok': !plan.bytes && models.server.found }">{{ plan.status }}</span>
+                    <button class="button" w-on="click:toWorld" w-disabled="!models.ready">Далее</button>
                 </div>
             </section>
 

@@ -154,6 +154,33 @@ body {
         font-size: 14px;
     }
 
+    // Нижняя строка: кнопки по краям, состояние в середине.
+    .actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-top: 12px;
+        border-top: 1px solid @border;
+
+        .button {
+            flex: none;
+        }
+
+        // Середина занимает остаток ширины: надпись читается по центру
+        // между кнопками, а не прижимается к одной из них.
+        .status {
+            flex: 1 1 auto;
+            text-align: center;
+            color: @text-muted;
+            font-size: 13px;
+
+            &.ok {
+                color: @ok;
+            }
+        }
+    }
+
     // Строка формы: поля ввода и кнопка в один ряд. Кнопка не сжимается,
     // иначе её подпись ломается на две строки.
     .line {

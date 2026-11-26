@@ -138,9 +138,10 @@ func (m module) start(r *http.Request) (any, error) {
 		return nil, err
 	}
 
-	if len(tasks) > 0 {
-		m.prog.reset()
-	}
+	// Строки прогресса повторяют выбор: сервер первой строкой, дальше
+	// выбранные роли в порядке каталога. Уже установленное сразу «готово».
+	m.prog.set(m.progressRows(req.Selection))
+
 	for _, t := range tasks {
 		if _, err := m.disp.Enqueue(r.Context(), t.request); err != nil {
 			return nil, fmt.Errorf("постановка %s: %w", t.title, err)
@@ -216,6 +217,43 @@ func findVariant(slot Slot, id string) (Variant, bool) {
 		}
 	}
 	return Variant{}, false
+}
+
+// progressRows строит строки прогресса по выбору: сервер и выбранные роли.
+// Строка заводится и для установленного файла — тогда она сразу «готово»,
+// и видно, что входит в набор.
+func (m module) progressRows(selection map[string]string) []progress {
+	rows := make([]progress, 0, len(m.catalog.Roles)+1)
+
+	server := progress{Key: serverKey, Title: m.catalog.Server.Title, State: stateWaiting}
+	if serverFound(m.cfg, m.catalog) {
+		server.State = stateDone
+	}
+	rows = append(rows, server)
+
+	for _, slot := range m.catalog.Roles {
+		id, ok := selection[string(slot.Role)]
+		if !ok {
+			continue
+		}
+		variant, found := findVariant(slot, id)
+		if !found {
+			continue
+		}
+
+		row := progress{
+			Key:   modelKey(slot.Role, variant.File),
+			Title: variant.Title,
+			Total: variant.Bytes,
+			State: stateWaiting,
+		}
+		if variantInstalled(m.cfg, slot.Role, variant.File) {
+			row.Done = variant.Bytes
+			row.State = stateDone
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 // modelKey — ключ загрузки роли: по нему экран сопоставляет строку прогресса
