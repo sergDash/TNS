@@ -31,6 +31,10 @@
         "catalog": "config/models.json",
         "dir": "world_db/models",
         "bin": "bin"
+      },
+      "world": {
+        "lists": "config/world.json",
+        "dir": "world_db/worlds"
       }
     }
   },

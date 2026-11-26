@@ -222,17 +222,18 @@ func TestModuleSettings(t *testing.T) {
 func TestBuildModulesSettings(t *testing.T) {
 	settings := map[string]json.RawMessage{
 		"models": json.RawMessage(`{"catalog":"../../config/models.json"}`),
+		"world":  json.RawMessage(`{"lists":"../../config/world.json"}`),
 	}
 
 	modules, err := buildModules(deps{settings: settings})
 	if err != nil {
 		t.Fatalf("buildModules: %v", err)
 	}
-	if len(modules) != 2 {
+	if len(modules) != 3 {
 		t.Fatalf("модулей: %d", len(modules))
 	}
-	names := []string{modules[0].Name(), modules[1].Name()}
-	if names[0] != "health" || names[1] != "models" {
+	names := []string{modules[0].Name(), modules[1].Name(), modules[2].Name()}
+	if names[0] != "health" || names[1] != "models" || names[2] != "world" {
 		t.Fatalf("модули: %v", names)
 	}
 

@@ -37,7 +37,13 @@
 
             <p class="failure" w-if="failure">{{ failure }}</p>
 
-            <section class="block">
+            <nav class="steps">
+                <span class="step" w-on="click:toModels"
+                      w-class="{ 'current': step === 'models', 'done': step !== 'models' }">Модели</span>
+                <span class="step" w-class="{ 'current': step === 'world' }">Мир</span>
+            </nav>
+
+            <section class="block" w-if="step === 'models'">
                 <h2 class="caption">
                     Скачивание моделей
                     <span class="engine">domains/models</span>
@@ -112,14 +118,106 @@
                 </div>
 
                 <div class="line">
-                    <button class="button" w-on="click:startDownload"
+                    <button class="button" w-if="!models.ready" w-on="click:startDownload"
                             w-disabled="downloads.active || (!plan.bytes && models.server.found)">
                         Начать скачивание
                     </button>
-                    <span class="hint">
+                    <button class="button" w-if="models.ready" w-on="click:toWorld">Далее</button>
+                    <span class="hint" w-if="!models.ready">
                         Скачивание идёт в очереди: страницу можно закрыть,
                         а после возврата оно продолжится с того же места.
                     </span>
+                    <span class="hint" w-if="models.ready">
+                        Всё на месте — можно переходить к настройке мира.
+                    </span>
+                </div>
+            </section>
+
+            <section class="block" w-if="step === 'world'">
+                <h2 class="caption">
+                    Настройка мира
+                    <span class="engine">domains/world</span>
+                </h2>
+                <p class="note">
+                    Отвечать долго не нужно: названия, нескольких слов о мире
+                    и выбора из списков хватит. Всё остальное уточнится позже.
+                </p>
+
+                <div class="created" w-if="created">
+                    <p>Мир «{{ created.title }}» создан, адрес — {{ created.slug }}.</p>
+                    <p class="hint">
+                        Дальше — рождение героя и первый ход. Это следующая
+                        работа переезда.
+                    </p>
+                </div>
+
+                <div class="form" w-if="!created">
+                    <div class="field">
+                        <span class="label">Название мира</span>
+                        <input class="input" w-bind="world.title" placeholder="Тёмное королевство">
+                        <p class="reason" w-if="world.errors.title">{{ world.errors.title }}</p>
+                    </div>
+
+                    <div class="field">
+                        <span class="label">Адрес мира</span>
+                        <input class="input" w-bind="world.slug" placeholder="dark-realm">
+                        <p class="hint">Латиницей, цифрами и дефисом: так мир называется в файлах.</p>
+                        <p class="reason" w-if="world.errors.slug">{{ world.errors.slug }}</p>
+                    </div>
+
+                    <div class="field">
+                        <span class="label">О чём история</span>
+                        <textarea class="input" rows="3" w-bind="world.synopsis"
+                                  placeholder="Король умер, наследник пропал. Страна ждёт."></textarea>
+                        <p class="hint">Одно-три предложения: это не план, а заявка.</p>
+                        <p class="reason" w-if="world.errors.synopsis">{{ world.errors.synopsis }}</p>
+                    </div>
+
+                    <div class="field">
+                        <span class="label">Жанры</span>
+                        <div class="chips">
+                            <span class="chip" w-for="item in world.genres traceby item.title"
+                                  w-class="{ 'on': item.on }" data-value="{{ item.title }}"
+                                  w-on="click:toggleGenre">{{ item.title }}</span>
+                        </div>
+                        <p class="reason" w-if="world.errors.genres">{{ world.errors.genres }}</p>
+                    </div>
+
+                    <div class="field">
+                        <span class="label">Строй мира</span>
+                        <div class="chips">
+                            <span class="chip" w-for="item in world.orders traceby item.title"
+                                  w-class="{ 'on': item.on }" data-list="orders" data-value="{{ item.title }}"
+                                  w-on="click:pickOne">{{ item.title }}</span>
+                        </div>
+                        <p class="reason" w-if="world.errors.social_order">{{ world.errors.social_order }}</p>
+                    </div>
+
+                    <div class="field">
+                        <span class="label">Карта мира</span>
+                        <div class="chips">
+                            <span class="chip" w-for="item in world.modes traceby item.title"
+                                  w-class="{ 'on': item.on }" data-list="modes" data-value="{{ item.title }}"
+                                  w-on="click:pickOne">{{ item.title }}</span>
+                        </div>
+                        <p class="reason" w-if="world.errors.travel_mode">{{ world.errors.travel_mode }}</p>
+                    </div>
+
+                    <div class="field">
+                        <span class="label">Возрастной рейтинг</span>
+                        <div class="chips">
+                            <span class="chip" w-for="item in world.ratings traceby item.title"
+                                  w-class="{ 'on': item.on }" data-list="ratings" data-value="{{ item.title }}"
+                                  w-on="click:pickOne">{{ item.title }}</span>
+                        </div>
+                        <p class="hint">Рейтинг решает, какие слова не попадут в текст.</p>
+                        <p class="reason" w-if="world.errors.censorship">{{ world.errors.censorship }}</p>
+                    </div>
+
+                    <div class="line">
+                        <button class="button" w-on="click:createWorld">Создать мир</button>
+                        <button class="button" w-on="click:toModels">Назад</button>
+                    </div>
                 </div>
             </section>
 

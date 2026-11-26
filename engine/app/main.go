@@ -23,6 +23,7 @@ import (
 
 	"tns/domains/health"
 	"tns/domains/models"
+	"tns/domains/world"
 	"tns/engine/activity"
 	"tns/engine/clock"
 	"tns/engine/config"
@@ -437,8 +438,12 @@ func buildModules(d deps) ([]core.Module, error) {
 	if err != nil {
 		return nil, err
 	}
+	worldModule, err := world.New(d.settings["world"])
+	if err != nil {
+		return nil, err
+	}
 
-	return []core.Module{healthModule, modelsModule}, nil
+	return []core.Module{healthModule, modelsModule, worldModule}, nil
 }
 
 // resolveDir выбирает каталог интерфейса.

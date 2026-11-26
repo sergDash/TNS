@@ -39,8 +39,16 @@ $(function () {
     var events = null;
 
     var view = $('#app').state({
+        step: 'models',
         models: { server: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
         plan: { bytes: 0, text: '—', ramGb: 0, ramText: '—', enough: true, paths: [] },
+        world: {
+            genres: [], orders: [], ratings: [], modes: [],
+            title: '', slug: '', synopsis: '',
+            socialOrder: '', censorship: '', travelMode: '',
+            errors: {}
+        },
+        created: null,
         downloads: { active: false, items: [] },
         diskText: '—',
         failure: ''
@@ -116,7 +124,7 @@ $(function () {
                 variants: variants
             });
         }
-        return { server: data.server, slots: slots, disk: data.disk };
+        return { ready: data.ready, server: data.server, slots: slots, disk: data.disk };
     }
 
     // prepareDownloads переводит строки прогресса в поля экрана: процент для
@@ -143,6 +151,79 @@ $(function () {
             });
         }
         return { active: data.active, items: items };
+    }
+
+    // pickDefault берёт желаемое значение из списка, а если его там нет —
+    // первое: пустой выбор на экране выглядел бы как «ничего не выбрано».
+    function pickDefault(list, want) {
+        for (var i = 0; i < list.length; i++) {
+            if (list[i] === want) {
+                return want;
+            }
+        }
+        return list.length ? list[0] : '';
+    }
+
+    // chips переводит список в строки выбора: подпись и признак «выбран».
+    function chips(list, chosen) {
+        var out = [];
+
+        for (var i = 0; i < list.length; i++) {
+            out.push({ title: list[i], on: list[i] === chosen });
+        }
+        return out;
+    }
+
+    // prepareWorld строит состояние анкеты из перечней модуля: списки
+    // приходят данными, а умолчания выставлены здесь, чтобы форма сразу
+    // была заполнена и её можно было отправить.
+    function prepareWorld(data) {
+        var genre = pickDefault(data.genres, 'фэнтези');
+        var order = pickDefault(data.socialOrders, 'феодализм');
+        var mode = pickDefault(data.travelModes, 'вымышленная');
+        var rating = pickDefault(data.ratings, '16+');
+
+        var genres = [];
+        for (var i = 0; i < data.genres.length; i++) {
+            genres.push({ title: data.genres[i], on: data.genres[i] === genre });
+        }
+
+        return {
+            genres: genres,
+            orders: chips(data.socialOrders, order),
+            modes: chips(data.travelModes, mode),
+            ratings: chips(data.ratings, rating),
+            title: '', slug: '', synopsis: '',
+            socialOrder: order, censorship: rating, travelMode: mode,
+            errors: {}
+        };
+    }
+
+    // fieldErrors переводит отказ модуля в подсветку полей: сервер называет
+    // поле и причину, форма показывает причину под нужным вводом.
+    function fieldErrors(error) {
+        var out = {};
+
+        if (!error.data || !error.data.fields) {
+            return out;
+        }
+        for (var i = 0; i < error.data.fields.length; i++) {
+            out[error.data.fields[i].field] = error.data.fields[i].reason;
+        }
+        return out;
+    }
+
+    // pickedGenres собирает отмеченные жанры в том порядке, в каком они
+    // стоят в списке: порядок не зависит от того, что нажимали первым.
+    function pickedGenres(state) {
+        var out = [];
+
+        for (var i = 0; i < state.world.genres.length; i++) {
+            if (state.world.genres[i].on) {
+                out.push(state.world.genres[i].title);
+            }
+        }
+        return out;
     }
 
     // recomputePlan считает итог по выбору: сколько предстоит скачать и
@@ -251,6 +332,17 @@ $(function () {
             });
     }
 
+    // loadWorld читает перечни анкеты: жанры, строи, карты, рейтинги.
+    function loadWorld(state) {
+        return call('/api/world')
+            .then(function (data) {
+                state.world = prepareWorld(data);
+            })
+            .catch(function (error) {
+                state.failure = error.message;
+            });
+    }
+
     // openEvents подписывается на поток прогресса. Поток закрывается сам,
     // когда загрузок не осталось: тогда каталог перечитывается, и на экране
     // появляются отметки «уже на месте».
@@ -318,6 +410,85 @@ $(function () {
         };
     });
 
+    // toWorld и toModels переключают шаг: экран один, меняется раздел.
+    view.method('toWorld', function (state) {
+        return function () {
+            state.step = 'world';
+        };
+    });
+
+    view.method('toModels', function (state) {
+        return function () {
+            state.step = 'models';
+        };
+    });
+
+    // pickOne выбирает один пункт из списка: строй, карту или рейтинг.
+    // w-on аргументов не передаёт, поэтому список и значение берутся из
+    // data-атрибутов, а признак выбранности переставляется в стейте.
+    view.method('pickOne', function (state) {
+        return function (event) {
+            var list = event.currentTarget.dataset.list;
+            var value = event.currentTarget.dataset.value;
+            var items = state.world[list];
+
+            for (var i = 0; i < items.length; i++) {
+                items[i].on = items[i].title === value;
+            }
+            if (list === 'orders') {
+                state.world.socialOrder = value;
+            } else if (list === 'ratings') {
+                state.world.censorship = value;
+            } else if (list === 'modes') {
+                state.world.travelMode = value;
+            }
+        };
+    });
+
+    // toggleGenre отмечает и снимает жанр: их может быть несколько.
+    view.method('toggleGenre', function (state) {
+        return function (event) {
+            var value = event.currentTarget.dataset.value;
+
+            for (var i = 0; i < state.world.genres.length; i++) {
+                if (state.world.genres[i].title === value) {
+                    state.world.genres[i].on = !state.world.genres[i].on;
+                    break;
+                }
+            }
+        };
+    });
+
+    // createWorld отправляет анкету. Отказ приходит списком полей: форма
+    // показывает причину под каждым, а не одну общую строку.
+    view.method('createWorld', function (state) {
+        return function () {
+            state.world.errors = {};
+            state.failure = '';
+
+            call('/api/world', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: state.world.title,
+                    slug: state.world.slug,
+                    synopsis: state.world.synopsis,
+                    travel_mode: state.world.travelMode,
+                    social_order: state.world.socialOrder,
+                    censorship: state.world.censorship,
+                    genres: pickedGenres(state)
+                })
+            })
+                .then(function (data) {
+                    state.created = data.world;
+                })
+                .catch(function (error) {
+                    state.world.errors = fieldErrors(error);
+                    state.failure = error.message;
+                });
+        };
+    });
+
     // startDownload отправляет выбор и подписывается на прогресс. Ответ
     // приходит сразу: сервер только ставит работы, байты идут следом.
     view.method('startDownload', function (state) {
@@ -363,6 +534,7 @@ $(function () {
     // this — вью.
     view.on('$mount', function (state) {
         loadModels(state);
+        loadWorld(state);
     });
 
     view.mount();

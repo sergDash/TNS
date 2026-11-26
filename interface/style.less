@@ -257,6 +257,99 @@ body {
         }
     }
 
+    // Шаги: два пункта, текущий выделен, пройденный можно нажать.
+    .steps {
+        .row(8px);
+
+        flex-wrap: wrap;
+    }
+
+    .step {
+        padding: 4px 10px;
+        border: 1px solid @border;
+        border-radius: 999px;
+        color: @text-muted;
+        font-size: 13px;
+
+        &.current {
+            border-color: @accent;
+            color: @accent;
+        }
+
+        &.done {
+            border-color: fade(@ok, 40%);
+            color: @ok;
+            cursor: pointer;
+        }
+    }
+
+    // Поле формы: подпись, ввод и причина отказа под ним.
+    .field {
+        display: grid;
+        gap: 6px;
+
+        .reason {
+            color: @error;
+            font-size: 12px;
+        }
+    }
+
+    .input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid @border;
+        border-radius: 8px;
+        background: @bg;
+        color: @text;
+        font: inherit;
+        // Системная рамка фокуса выглядит грубо; вместо неё цвет рамки.
+        outline: none;
+
+        &:focus {
+            border-color: @accent;
+        }
+    }
+
+    textarea.input {
+        min-height: 72px;
+        resize: vertical;
+    }
+
+    // Строка выбора: жанры, строй, карта, рейтинг.
+    .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .chip {
+        padding: 4px 10px;
+        border: 1px solid @border;
+        border-radius: 999px;
+        color: @text-muted;
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+
+        &.on {
+            border-color: @accent;
+            background: fade(@accent, 10%);
+            color: @accent;
+        }
+    }
+
+    // Сообщение об успехе: мир создан. Класс не называется done: так
+    // помечается пройденный шаг, и стили бы разъехались.
+    .created {
+        display: grid;
+        gap: 6px;
+        padding: 12px 14px;
+        border: 1px solid fade(@ok, 40%);
+        border-radius: 8px;
+        background: fade(@ok, 6%);
+    }
+
     // Пути: куда ляжет каждый файл. Моноширинно и мелко — это адрес,
     // а не текст для чтения.
     .paths {
