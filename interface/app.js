@@ -48,7 +48,9 @@ $(function () {
             socialOrder: '', censorship: '', travelMode: '',
             errors: {}
         },
+        hero: { title: '', note: '', fields: [] },
         created: null,
+        heroCreated: null,
         progress: [],
         downloads: { active: false, items: [] },
         diskText: '—',
@@ -266,6 +268,51 @@ $(function () {
         };
     }
 
+    // prepareHero переводит форму героя из конфига в стейт: у поля есть
+    // значение и причина отказа, шаблон только выводит их. Состав полей
+    // задаётся конфигом, поэтому код про них ничего не знает.
+    function prepareHero(hero) {
+        var fields = [];
+        var source = hero.fields || [];
+
+        for (var i = 0; i < source.length; i++) {
+            fields.push({
+                id: source[i].id,
+                title: source[i].title,
+                hint: source[i].hint,
+                type: source[i].type,
+                options: source[i].options || [],
+                value: '',
+                error: ''
+            });
+        }
+        return { title: hero.title || '', note: hero.note || '', fields: fields };
+    }
+
+    // heroField находит поле формы героя по имени.
+    function heroField(state, id) {
+        for (var i = 0; i < state.hero.fields.length; i++) {
+            if (state.hero.fields[i].id === id) {
+                return state.hero.fields[i];
+            }
+        }
+        return null;
+    }
+
+    // applyHeroErrors раскладывает отказ модуля по полям формы: причина
+    // встаёт под своим вводом, а не одной строкой сверху.
+    function applyHeroErrors(state, error) {
+        if (!error.data || !error.data.fields) {
+            return;
+        }
+        for (var i = 0; i < error.data.fields.length; i++) {
+            var field = heroField(state, error.data.fields[i].field);
+            if (field) {
+                field.error = error.data.fields[i].reason;
+            }
+        }
+    }
+
     // fieldErrors переводит отказ модуля в подсветку полей: сервер называет
     // поле и причину, форма показывает причину под нужным вводом.
     function fieldErrors(error) {
@@ -407,6 +454,7 @@ $(function () {
         return call('/api/world')
             .then(function (data) {
                 state.world = prepareWorld(data);
+                state.hero = prepareHero(data.hero || {});
             })
             .catch(function (error) {
                 state.failure = error.message;
@@ -487,6 +535,72 @@ $(function () {
     view.method('toWorld', function (state) {
         return function () {
             state.step = 'world';
+        };
+    });
+
+    // toHero открывает шаг героя: он возможен только после рождения мира.
+    view.method('toHero', function (state) {
+        return function () {
+            if (state.created) {
+                state.step = 'hero';
+            }
+        };
+    });
+
+    // setAnswer запоминает ввод в текстовом поле героя. w-on не передаёт
+    // значений, поэтому поле берётся из data-field, а текст — из элемента.
+    view.method('setAnswer', function (state) {
+        return function (event) {
+            var field = heroField(state, event.currentTarget.dataset.field);
+            if (!field) {
+                return;
+            }
+            field.value = event.currentTarget.value;
+            field.error = '';
+        };
+    });
+
+    // pickAnswer выбирает вариант в поле-списке героя.
+    view.method('pickAnswer', function (state) {
+        return function (event) {
+            var field = heroField(state, event.currentTarget.dataset.field);
+            if (!field) {
+                return;
+            }
+            field.value = event.currentTarget.dataset.value;
+            field.error = '';
+        };
+    });
+
+    // createHero отправляет ответы и рождает героя в базе мира.
+    view.method('createHero', function (state) {
+        return function () {
+            if (!state.created) {
+                return;
+            }
+
+            var answers = {};
+            for (var i = 0; i < state.hero.fields.length; i++) {
+                var field = state.hero.fields[i];
+                answers[field.id] = field.value;
+                field.error = '';
+            }
+            state.failure = '';
+
+            call('/api/world/' + encodeURIComponent(state.created.slug) + '/hero', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ answers: answers })
+            })
+                .then(function (data) {
+                    state.heroCreated = data.hero;
+                })
+                .catch(function (error) {
+                    applyHeroErrors(state, error);
+                    if (!error.data || !error.data.fields) {
+                        state.failure = error.message;
+                    }
+                });
         };
     });
 

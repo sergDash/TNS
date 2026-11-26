@@ -14,7 +14,7 @@ import (
 
 // schemaVersion — версия схемы мира. Миграции идут по порядку: номер в
 // PRAGMA user_version говорит, какие уже применены.
-const schemaVersion = 1
+const schemaVersion = 2
 
 // openWorld открывает базу мира, создавая каталог и файл при первом
 // рождении. Соединение одно: база мира пишется одним писателем.
@@ -63,6 +63,7 @@ func migrate(db *sql.DB) error {
 // не правятся: базы уже прошли их.
 var migrations = []func(*sql.DB) error{
 	migrateWorlds,
+	migrateHero,
 }
 
 // migrateWorlds заводит таблицу миров: одна строка — один мир.
@@ -79,6 +80,58 @@ func migrateWorlds(db *sql.DB) error {
 		created_at   TEXT NOT NULL
 	)`)
 	return err
+}
+
+// migrateHero заводит таблицу героя: одна строка на мир.
+func migrateHero(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS hero (
+		answers    TEXT NOT NULL,
+		created_at TEXT NOT NULL
+	)`)
+	return err
+}
+
+// createHero записывает героя мира. Ответы хранятся как JSON: набор полей
+// задаётся конфигом, и схема за ним не должна меняться.
+func createHero(path string, answers map[string]string, now time.Time) error {
+	data, err := json.Marshal(answers)
+	if err != nil {
+		return err
+	}
+
+	db, err := openWorld(path)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`INSERT INTO hero (answers, created_at) VALUES (?, ?)`,
+		string(data), now.Format(time.RFC3339))
+	return err
+}
+
+// readHero читает героя мира. Нет строки — герой ещё не рождён.
+func readHero(path string) (map[string]string, bool, error) {
+	db, err := openWorld(path)
+	if err != nil {
+		return nil, false, err
+	}
+	defer db.Close()
+
+	var data string
+	err = db.QueryRow(`SELECT answers FROM hero LIMIT 1`).Scan(&data)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+
+	var answers map[string]string
+	if err := json.Unmarshal([]byte(data), &answers); err != nil {
+		return nil, false, err
+	}
+	return answers, true, nil
 }
 
 // createWorld записывает мир в его базу. Каталог мира — это его дом: база,

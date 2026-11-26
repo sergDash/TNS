@@ -40,7 +40,9 @@
             <nav class="steps">
                 <span class="step" w-on="click:toModels"
                       w-class="{ 'current': step === 'models', 'done': step !== 'models' }">Модели</span>
-                <span class="step" w-class="{ 'current': step === 'world' }">Мир</span>
+                <span class="step" w-on="click:toWorld"
+                      w-class="{ 'current': step === 'world', 'done': step === 'hero' }">Мир</span>
+                <span class="step" w-class="{ 'current': step === 'hero' }">Герой</span>
             </nav>
 
             <section class="block" w-if="step === 'models'">
@@ -138,10 +140,11 @@
 
                 <div class="created" w-if="created">
                     <p>Мир «{{ created.title }}» создан, адрес — {{ created.slug }}.</p>
-                    <p class="hint">
-                        Дальше — рождение героя и первый ход. Это следующая
-                        работа переезда.
-                    </p>
+                    <p class="hint">Дальше — рождение героя.</p>
+                </div>
+
+                <div class="line" w-if="created">
+                    <button class="button" w-on="click:toHero">Далее</button>
                 </div>
 
                 <div class="form" w-if="!created">
@@ -210,6 +213,43 @@
                     <div class="line">
                         <button class="button" w-on="click:createWorld">Создать мир</button>
                         <button class="button" w-on="click:toModels">Назад</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="block" w-if="step === 'hero'">
+                <h2 class="caption">
+                    Герой
+                    <span class="engine">domains/world</span>
+                </h2>
+                <p class="note">{{ hero.note }}</p>
+
+                <div class="created" w-if="heroCreated">
+                    <p>Герой «{{ heroCreated.name }}» рождён.</p>
+                    <p class="hint">
+                        Дальше — первый ход: реплика игрока и ответ мира.
+                        Это следующая работа переезда.
+                    </p>
+                </div>
+
+                <div class="form" w-if="!heroCreated">
+                    <div class="field" w-for="f in hero.fields traceby f.id">
+                        <span class="label">{{ f.title }}</span>
+                        <input class="input" w-if="f.type === 'text'" data-field="{{ f.id }}"
+                               w-on="input:setAnswer" placeholder="{{ f.hint }}">
+                        <div class="chips" w-if="f.type === 'choice'">
+                            <span class="chip" w-for="opt in f.options traceby opt"
+                                  w-class="{ 'on': f.value === opt }"
+                                  data-field="{{ f.id }}" data-value="{{ opt }}"
+                                  w-on="click:pickAnswer">{{ opt }}</span>
+                        </div>
+                        <p class="hint" w-if="f.type !== 'text'">{{ f.hint }}</p>
+                        <p class="reason">{{ f.error }}</p>
+                    </div>
+
+                    <div class="line">
+                        <button class="button" w-on="click:createHero">Начать</button>
+                        <button class="button" w-on="click:toWorld">Назад</button>
                     </div>
                 </div>
             </section>

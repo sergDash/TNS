@@ -22,6 +22,9 @@ type Lists struct {
 	EconomyMods  []string `json:"economy_mods"`
 	Ratings      []string `json:"ratings"`
 	Langs        []string `json:"langs"`
+	// Hero — форма героя. Пустой список полей значит, что отдельного шага
+	// героя нет: вопрос о нём ещё открыт.
+	Hero Hero `json:"hero"`
 }
 
 // LoadLists читает перечни из файла. Неизвестные ключи запрещены: опечатка

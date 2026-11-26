@@ -18,6 +18,17 @@ func testLists() Lists {
 	}
 }
 
+func testHero() Hero {
+	return Hero{
+		Title: "Герой",
+		Fields: []HeroField{
+			{ID: "name", Title: "Имя", Type: "text", Required: true, Limit: 5},
+			{ID: "estate", Title: "Сословие", Type: "choice", Required: true, Options: []string{"купец", "крестьянин"}},
+			{ID: "books", Title: "Книги", Type: "text", Limit: 10},
+		},
+	}
+}
+
 func validAnketa() Anketa {
 	return Anketa{
 		Slug:        "dark-realm",
@@ -29,6 +40,10 @@ func validAnketa() Anketa {
 		SocialOrder: "феодализм",
 		Censorship:  "16+",
 	}
+}
+
+func validHeroAnswers() map[string]string {
+	return map[string]string{"name": "Илья", "estate": "купец", "books": "Азимов"}
 }
 
 // TestShippedLists — перечни поставки читаются и не пусты: экран берёт
@@ -155,5 +170,90 @@ func TestNewerSchemaRefused(t *testing.T) {
 
 	if _, err := openWorld(path); err == nil || !strings.Contains(err.Error(), "новее кода") {
 		t.Fatalf("база новее кода открылась: %v", err)
+	}
+}
+
+// TestHeroValidate — форма героя проверяется по конфигу: обязательное
+// заполнено, выбор из списка, текст в пределе, чужих полей нет.
+func TestHeroValidate(t *testing.T) {
+	cases := []struct {
+		name   string
+		change func(map[string]string)
+		field  string
+	}{
+		{"пустое имя", func(a map[string]string) { a["name"] = "  " }, "name"},
+		{"имя длиннее предела", func(a map[string]string) { a["name"] = "Илья Муромец" }, "name"},
+		{"сословие не выбрано", func(a map[string]string) { delete(a, "estate") }, "estate"},
+		{"сословие вне списка", func(a map[string]string) { a["estate"] = "аристократ" }, "estate"},
+		{"книги длиннее предела", func(a map[string]string) { a["books"] = "очень длинный список книг" }, "books"},
+		{"чужое поле", func(a map[string]string) { a["nickname"] = "x" }, "nickname"},
+	}
+
+	if ve := testHero().ValidateHero(validHeroAnswers()); ve != nil {
+		t.Fatalf("верные ответы не приняты: %v", ve)
+	}
+
+	for _, c := range cases {
+		answers := validHeroAnswers()
+		c.change(answers)
+
+		ve := testHero().ValidateHero(answers)
+		if ve == nil {
+			t.Fatalf("%s: ответы приняты", c.name)
+		}
+		found := false
+		for _, f := range ve.Fields {
+			if f.Field == c.field {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s: в отказе нет поля %s: %v", c.name, c.field, ve.Fields)
+		}
+	}
+}
+
+// TestCreateHero — герой записывается в базу мира и читается обратно ровно
+// теми ответами, которые пришли.
+func TestCreateHero(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dark-realm", "world.db")
+
+	if err := createWorld(path, validAnketa(), time.Now().UTC()); err != nil {
+		t.Fatalf("мир: %v", err)
+	}
+	if err := createHero(path, validHeroAnswers(), time.Now().UTC()); err != nil {
+		t.Fatalf("герой: %v", err)
+	}
+
+	answers, ok, err := readHero(path)
+	if err != nil {
+		t.Fatalf("чтение: %v", err)
+	}
+	if !ok {
+		t.Fatal("герой не найден после рождения")
+	}
+	if answers["name"] != "Илья" || answers["estate"] != "купец" || answers["books"] != "Азимов" {
+		t.Fatalf("прочитано не то: %v", answers)
+	}
+}
+
+// TestShippedHeroForm — форма героя есть в конфиге поставки: пока вопрос о
+// её составе открыт, она живёт данными и должна быть непустой.
+func TestShippedHeroForm(t *testing.T) {
+	lists, err := LoadLists(filepath.Join("..", "..", "config", "world.json"))
+	if err != nil {
+		t.Fatalf("перечни: %v", err)
+	}
+	if len(lists.Hero.Fields) == 0 {
+		t.Fatal("в конфиге нет полей героя")
+	}
+	for _, f := range lists.Hero.Fields {
+		if f.ID == "" || f.Title == "" {
+			t.Fatalf("поле героя без имени: %+v", f)
+		}
+		if f.Type == "choice" && len(f.Options) == 0 {
+			t.Fatalf("поле %s: выбор без вариантов", f.ID)
+		}
 	}
 }

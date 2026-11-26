@@ -64,6 +64,7 @@ func (module) Name() string { return "world" }
 func (m module) Register(r core.Registry) error {
 	r.HTTP("GET", "/api/world", m.anketa)
 	r.HTTP("POST", "/api/world", m.create)
+	r.HTTP("POST", "/api/world/{slug}/hero", m.createHero)
 	return nil
 }
 
@@ -74,6 +75,7 @@ type anketaResponse struct {
 	SocialOrders []string `json:"socialOrders"`
 	TravelModes  []string `json:"travelModes"`
 	Ratings      []string `json:"ratings"`
+	Hero         Hero     `json:"hero"`
 }
 
 func (m module) anketa(*http.Request) (any, error) {
@@ -82,6 +84,7 @@ func (m module) anketa(*http.Request) (any, error) {
 		SocialOrders: m.lists.SocialOrders,
 		TravelModes:  m.lists.TravelModes,
 		Ratings:      m.lists.Ratings,
+		Hero:         m.lists.Hero,
 	}, nil
 }
 
@@ -128,6 +131,50 @@ func (m module) create(r *http.Request) (any, error) {
 	}
 
 	return map[string]any{"world": map[string]string{"slug": a.Slug, "title": a.Title}}, nil
+}
+
+// heroRequest — ответы на форму героя: поле → значение.
+type heroRequest struct {
+	Answers map[string]string `json:"answers"`
+}
+
+// createHero проверяет ответы и записывает героя в базу мира. Мир должен
+// существовать, а герой — ещё нет: второй герой в одном мире не рождается.
+func (m module) createHero(r *http.Request) (any, error) {
+	slug := r.PathValue("slug")
+	if !slugRe.MatchString(slug) {
+		return nil, &core.Error{Status: http.StatusBadRequest, Message: "неверный адрес мира"}
+	}
+
+	var req heroRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, &core.Error{Status: http.StatusBadRequest, Message: "не разобрать ответы", Err: err}
+	}
+
+	dbPath := filepath.Join(m.cfg.Dir, slug, "world.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, &core.Error{Status: http.StatusNotFound, Message: "мир не найден"}
+	}
+
+	if _, ok, err := readHero(dbPath); err != nil {
+		return nil, fmt.Errorf("герой: %w", err)
+	} else if ok {
+		return nil, &core.Error{Status: http.StatusConflict, Message: "у этого мира уже есть герой"}
+	}
+
+	if ve := m.lists.Hero.ValidateHero(req.Answers); ve != nil {
+		return nil, &core.Error{
+			Status:  http.StatusBadRequest,
+			Message: "ответы не приняты: проверьте поля",
+			Data:    map[string]any{"code": "bad_request", "fields": ve.Fields},
+			Err:     ve,
+		}
+	}
+
+	if err := createHero(dbPath, req.Answers, time.Now().UTC()); err != nil {
+		return nil, fmt.Errorf("рождение героя: %w", err)
+	}
+	return map[string]any{"hero": req.Answers}, nil
 }
 
 // errWorldExists нужен, чтобы отказ «адрес занят» отличался от прочих ошибок
