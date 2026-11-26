@@ -215,17 +215,25 @@ func TestModuleSettings(t *testing.T) {
 	}
 }
 
-// TestBuildModulesSettings — у модуля состояния настроек нет, поэтому любой
-// ключ в его разделе останавливает сборку с понятным текстом, а не проходит
-// молча. Список модулей — единственное место, где он задан, поэтому проверка
-// держится за имя модуля, а не за число.
+// TestBuildModulesSettings — модули собираются со своими настройками, а
+// неизвестный ключ в разделе модуля останавливает сборку с понятным текстом,
+// а не проходит молча. Каталог моделей задан путём от каталога проверки:
+// без него модуль читает config/models.json от каталога запуска.
 func TestBuildModulesSettings(t *testing.T) {
-	modules, err := buildModules(deps{})
+	settings := map[string]json.RawMessage{
+		"models": json.RawMessage(`{"catalog":"../../config/models.json"}`),
+	}
+
+	modules, err := buildModules(deps{settings: settings})
 	if err != nil {
 		t.Fatalf("buildModules: %v", err)
 	}
-	if len(modules) != 1 || modules[0].Name() != "health" {
+	if len(modules) != 2 {
 		t.Fatalf("модулей: %d", len(modules))
+	}
+	names := []string{modules[0].Name(), modules[1].Name()}
+	if names[0] != "health" || names[1] != "models" {
+		t.Fatalf("модули: %v", names)
 	}
 
 	_, err = buildModules(deps{settings: map[string]json.RawMessage{

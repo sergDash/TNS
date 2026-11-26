@@ -90,46 +90,31 @@
                     </p>
                 </div>
 
+                <div class="downloads" w-if="downloads.items.length">
+                    <p class="label">Загрузка</p>
+                    <div class="download" w-for="row in downloads.items traceby row.key">
+                        <div class="head">
+                            <span class="title">{{ row.title }}</span>
+                            <span class="meta">{{ row.state }}</span>
+                        </div>
+                        <div class="bar"><div class="fill" style="width: {{ row.percent }}%"></div></div>
+                        <p class="meta">{{ row.progressText }}</p>
+                        <p class="meta error" w-if="row.error">{{ row.error }}</p>
+                    </div>
+                </div>
+
                 <div class="line">
-                    <button class="button" w-disabled="true">Начать скачивание</button>
+                    <button class="button" w-on="click:startDownload"
+                            w-disabled="downloads.active || (!plan.bytes && models.server.found)">
+                        Начать скачивание
+                    </button>
                     <span class="hint">
-                        Кнопка включится, когда появится загрузчик: сначала
-                        видно, что и сколько будет скачано.
+                        Скачивание идёт в очереди: страницу можно закрыть,
+                        а после возврата оно продолжится с того же места.
                     </span>
                 </div>
             </section>
 
-            <section class="block">
-                <h2 class="caption">
-                    Состояние процесса
-                    <span class="engine">engine/httpapi</span>
-                </h2>
-                <p class="note">
-                    Ответ приходит в общем конверте: данные в result, ошибка
-                    в error, — поэтому клиенту не нужно угадывать форму.
-                    Кнопка повторяет запрос <code>GET /api/health</code>,
-                    чтобы его было видно в сетевой панели инструментов.
-                    По версии понятно, какая сборка запущена.
-                </p>
-                <div class="probe">
-                    <p class="status" w-class="{ 'ok': ok, 'error': !checking && !ok }">
-                        <span class="dot"></span>{{ status }}
-                    </p>
-                    <button class="button" w-on="click:check" w-disabled="checking">Проверить</button>
-                </div>
-                <p class="label" w-if="version">версия {{ version }}</p>
-            </section>
-
-            <footer class="actions">
-                <button class="button" w-on="click:refresh" w-disabled="checking">
-                    Обновить всё
-                </button>
-                <span class="hint">
-                    Перечитывает каталог и состояние процесса. Опроса нет:
-                    данные меняются только после нажатия, пока не сделан
-                    канал обновлений (шаг «Поток в интерфейсе»).
-                </span>
-            </footer>
         </main>
     </template>
 

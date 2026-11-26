@@ -50,6 +50,15 @@ type snapshot struct {
 	Disk diskState `json:"disk"`
 	// Ready — ставить нечего: сервер и все роли уже на месте.
 	Ready bool `json:"ready"`
+	// Downloads — загрузки на момент снимка; поток обновлений отдаёт то же.
+	Downloads downloadState `json:"downloads"`
+}
+
+// downloadState — строки загрузок и признак «что-то ещё идёт». Снимок и
+// поток отдают одинаковую форму, чтобы клиент разбирал её одним кодом.
+type downloadState struct {
+	Items  []progress `json:"items"`
+	Active bool       `json:"active"`
 }
 
 type serverState struct {
@@ -91,14 +100,9 @@ func snapshotOf(cfg Config, catalog Catalog) snapshot {
 			Title:   catalog.Server.Title,
 			File:    catalog.Server.File,
 			Version: catalog.Server.Version,
-			Path:    filepath.Join(cfg.Bin, catalog.Server.File),
+			Path:    serverPath(cfg, catalog),
+			Found:   serverFound(cfg, catalog),
 		},
-	}
-
-	// Сервер считается найденным, только если файл исполняемый: лежащий
-	// рядом архив или огрызок загрузки станцией не является.
-	if info, err := os.Stat(out.Server.Path); err == nil && info.Mode().Perm()&0o111 != 0 {
-		out.Server.Found = true
 	}
 
 	ready := out.Server.Found
@@ -113,12 +117,9 @@ func snapshotOf(cfg Config, catalog Catalog) snapshot {
 				Bytes:  variant.Bytes,
 				Approx: variant.Approx,
 				RAMGB:  variant.RAMGB,
-				Path:   filepath.Join(cfg.Dir, string(slot.Role), variant.File),
+				Path:   variantPath(cfg, slot.Role, variant.File),
 			}
-			// Установленным считается непустой файл нужного имени: манифест
-			// и сверка суммы появятся вместе с загрузчиком, а до тех пор
-			// единственный честный признак — файл на диске.
-			if info, err := os.Stat(v.Path); err == nil && info.Size() > 0 {
+			if variantInstalled(cfg, slot.Role, variant.File) {
 				v.Installed = true
 				installed = true
 			}
@@ -134,6 +135,30 @@ func snapshotOf(cfg Config, catalog Catalog) snapshot {
 	free, dir := freeSpace(cfg.Dir)
 	out.Disk = diskState{FreeBytes: free, Path: dir}
 	return out
+}
+
+// serverPath — где лежит бинарник сервера.
+func serverPath(cfg Config, catalog Catalog) string {
+	return filepath.Join(cfg.Bin, catalog.Server.File)
+}
+
+// serverFound сообщает, есть ли исполняемый сервер. Лежащий рядом архив
+// или огрызок загрузки сервером не считается.
+func serverFound(cfg Config, catalog Catalog) bool {
+	info, err := os.Stat(serverPath(cfg, catalog))
+	return err == nil && info.Mode().Perm()&0o111 != 0
+}
+
+// variantPath — где лежит файл варианта роли.
+func variantPath(cfg Config, role Role, file string) string {
+	return filepath.Join(cfg.Dir, string(role), file)
+}
+
+// variantInstalled сообщает, лежит ли непустой файл варианта. Манифест и
+// сверка суммы проверяются загрузкой; для экрана достаточно файла на диске.
+func variantInstalled(cfg Config, role Role, file string) bool {
+	info, err := os.Stat(variantPath(cfg, role, file))
+	return err == nil && info.Size() > 0
 }
 
 // freeSpace отвечает, сколько свободно там, где будут лежать модели.

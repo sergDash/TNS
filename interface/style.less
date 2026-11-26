@@ -257,6 +257,54 @@ body {
         }
     }
 
+    // Загрузки: строка на файл, полоса прогресса и подпись с байтами.
+    .downloads {
+        display: grid;
+        gap: 10px;
+        padding-top: 12px;
+        border-top: 1px solid @border;
+    }
+
+    .download {
+        display: grid;
+        gap: 4px;
+
+        .head {
+            .row(10px);
+
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .title {
+            font-size: 13px;
+        }
+
+        .meta {
+            color: @text-muted;
+            font-size: 12px;
+        }
+
+        .error {
+            color: @error;
+        }
+    }
+
+    // Полоса прогресса: ширина заливки приходит из стейта процентом.
+    .bar {
+        height: 6px;
+        border: 1px solid @border;
+        border-radius: 999px;
+        background: @bg;
+        overflow: hidden;
+
+        .fill {
+            height: 100%;
+            background: @accent;
+            transition: width 200ms;
+        }
+    }
+
     // Состояние сервера: точка и подпись, как у проверки связи.
     .server {
         .row(8px);
@@ -276,14 +324,6 @@ body {
         }
     }
 
-    .actions {
-        .row(12px);
-
-        padding-top: 20px;
-        border-top: 1px solid @border;
-        flex-wrap: wrap;
-    }
-
     .hint {
         color: @text-muted;
         font-size: 13px;
@@ -294,7 +334,7 @@ body {
         font-size: 14px;
     }
 
-    // Подпись над таблицей: объясняет, что окно ограничено по высоте.
+    // Мелкая заглавная подпись над группой: итог, загрузки.
     .label {
         color: @text-muted;
         font-size: 12px;
@@ -302,37 +342,4 @@ body {
         text-transform: uppercase;
     }
 
-    // Строка проверки связи: состояние и кнопка повтора запроса рядом.
-    .probe {
-        .row(12px);
-
-        justify-content: space-between;
-        flex-wrap: wrap;
-    }
-
-    .status {
-        .row();
-
-        color: @text-muted;
-
-        .dot {
-            .indicator(@text-muted);
-        }
-
-        &.ok {
-            color: @ok;
-
-            .dot {
-                .indicator(@ok);
-            }
-        }
-
-        &.error {
-            color: @error;
-
-            .dot {
-                .indicator(@error);
-            }
-        }
-    }
 }

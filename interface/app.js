@@ -1,12 +1,11 @@
 // Поток данных страницы.
 //
-// 1. Стейт создаётся синхронно: связь не проверена, каталог ещё не прочитан.
+// 1. Стейт создаётся синхронно: каталог ещё не прочитан.
 // 2. mount() вставляет шаблон #app в DOM и подписывает его на стейт.
 // 3. call() — единственное место разбора конверта: сначала error, затем
 //    result, как в Go сначала проверяют err, а потом берут значение.
 // 4. Ответ ложится в поля стейта, и wex перерисовывает изменившиеся узлы.
-//    Обновление идёт по кнопке, без опроса: канал обновлений — шаг
-//    «Поток в интерфейсе», он ещё не сделан.
+// 5. Прогресс загрузок приходит потоком: опроса нет.
 //
 // --- Аудит wex, 2026-11-26 ---
 //
@@ -28,18 +27,21 @@
 //    .on('$mount', function (state) {...}), в this — вью экземпляра.
 //    Двухуровневая форма (return function () {}) у хуков молчит.
 // 3. Значения из data-* приходят строками, даже если в данных были числа.
+// 4. Выражение внутри атрибута разметки подставляется как текст: ширина
+//    полосы прогресса задаётся style="width: {{ percent }}%".
 //
 // Быстрая проверка после обновления: открыть страницу, дождаться карточек,
-// переключить вариант смысла и выключить роль — итог под карточками должен
-// меняться, в консоли — ни одной ошибки.
+// переключить вариант смысла и выключить роль — итог должен меняться;
+// затем начать скачивание и убедиться, что полосы двигаются без опроса.
 $(function () {
+    // events — открытый поток прогресса. Объект живёт вне стейта: это
+    // транспорт, а не данные страницы.
+    var events = null;
+
     var view = $('#app').state({
-        checking: true,
-        ok: false,
-        status: 'проверяем связь с сервером…',
-        version: '',
         models: { server: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
         plan: { bytes: 0, text: '—', ramGb: 0, ramText: '—', enough: true },
+        downloads: { active: false, items: [] },
         diskText: '—',
         failure: ''
     });
@@ -57,7 +59,13 @@ $(function () {
         if (n >= 1000000000) {
             return (n / 1000000000).toFixed(1).replace('.', ',') + ' ГБ';
         }
-        return Math.round(n / 1000000) + ' МБ';
+        if (n >= 1000000) {
+            return Math.round(n / 1000000) + ' МБ';
+        }
+        if (n >= 1000) {
+            return Math.round(n / 1000) + ' КБ';
+        }
+        return n + ' Б';
     }
 
     // humanRAM — память при работе, целыми гигабайтами.
@@ -110,10 +118,36 @@ $(function () {
         return { server: data.server, slots: slots, disk: data.disk };
     }
 
+    // prepareDownloads переводит строки прогресса в поля экрана: процент для
+    // полосы и подпись «сколько из сколького».
+    function prepareDownloads(data) {
+        var items = [];
+
+        for (var i = 0; i < data.items.length; i++) {
+            var item = data.items[i];
+            var percent = 0;
+            var text = humanBytes(item.done);
+
+            if (item.total > 0) {
+                percent = Math.round(item.done * 100 / item.total);
+                text = humanBytes(item.done) + ' из ' + humanBytes(item.total);
+            }
+            items.push({
+                key: item.key,
+                title: item.title,
+                state: item.state,
+                error: item.error || '',
+                percent: percent,
+                progressText: text
+            });
+        }
+        return { active: data.active, items: items };
+    }
+
     // recomputePlan считает итог по выбору: сколько предстоит скачать и
-    // сколько памяти займёт работа. Смысл живёт в памяти постоянно,
-    // генераторы — по одному за раз, поэтому память считается как смысл
-    // плюс старший из включённых генераторов.
+    // сколько памяти займёт работа. Понимание живёт в памяти постоянно,
+    // а писать может только одна модель за раз, поэтому память считается
+    // как понимание плюс старший из включённых вариантов.
     function recomputePlan(state) {
         var bytes = 0;
         var resident = 0;
@@ -184,28 +218,6 @@ $(function () {
             });
     }
 
-    // snapshot читает состояние процесса: по нему видно, что сервер отвечает
-    // и какая сборка запущена.
-    function snapshot(state) {
-        state.checking = true;
-        state.status = 'проверяем связь с сервером…';
-
-        call('/api/health')
-            .then(function (health) {
-                state.checking = false;
-                state.ok = health.ok;
-                state.status = health.status;
-                state.version = health.version;
-                state.failure = '';
-            })
-            .catch(function (error) {
-                state.checking = false;
-                state.ok = false;
-                state.status = 'сервер не ответил: ' + error.message;
-                state.failure = error.message;
-            });
-    }
-
     // loadModels читает каталог и состояние установки: что уже на месте,
     // что предстоит скачать и сколько для этого нужно места.
     function loadModels(state) {
@@ -213,29 +225,51 @@ $(function () {
             .then(function (data) {
                 state.models = prepareModels(data);
                 state.diskText = humanBytes(data.disk.freeBytes);
+                state.downloads = prepareDownloads(data.downloads);
                 recomputePlan(state);
+
+                // Загрузка, начатая до перезагрузки страницы, продолжается:
+                // поток подключается к ней сразу, а не ждёт новой кнопки.
+                if (state.downloads.active) {
+                    openEvents(state);
+                }
             })
             .catch(function (error) {
                 state.failure = error.message;
             });
     }
 
-    // check повторяет тот запрос, которым страница проверяет связь. Кнопка
-    // нужна не для данных, а чтобы запрос было видно в инструментах
-    // веб-разработчика: нажатие оставляет одну строку в сетевой панели.
-    view.method('check', function (state) {
-        return function () {
-            snapshot(state);
-        };
-    });
+    // openEvents подписывается на поток прогресса. Поток закрывается сам,
+    // когда загрузок не осталось: тогда каталог перечитывается, и на экране
+    // появляются отметки «уже на месте».
+    function openEvents(state) {
+        if (events) {
+            return;
+        }
 
-    // refresh перечитывает состояние по кнопке: опроса нет.
-    view.method('refresh', function (state) {
-        return function () {
-            snapshot(state);
-            loadModels(state);
+        events = new EventSource('/api/models/events');
+        events.onmessage = function (event) {
+            var data = JSON.parse(event.data);
+
+            state.downloads = prepareDownloads(data);
+            if (!data.active) {
+                events.close();
+                events = null;
+                loadModels(state);
+            }
         };
-    });
+        events.onerror = function () {
+            // Ошибка приходит и при собственном закрытии потока, поэтому
+            // проверяется, что он всё ещё тот же.
+            if (!events) {
+                return;
+            }
+            events.close();
+            events = null;
+            state.downloads = { active: false, items: state.downloads.items };
+            state.failure = 'поток прогресса прерван';
+        };
+    }
 
     // toggleRole включает и выключает роль кликом по её заголовку: выбор
     // того, что ставить, — это и есть отметка в карточке.
@@ -272,6 +306,43 @@ $(function () {
         };
     });
 
+    // startDownload отправляет выбор и подписывается на прогресс. Ответ
+    // приходит сразу: сервер только ставит работы, байты идут следом.
+    view.method('startDownload', function (state) {
+        return function () {
+            var selection = {};
+
+            for (var i = 0; i < state.models.slots.length; i++) {
+                var slot = state.models.slots[i];
+                if (slot.enabled) {
+                    selection[slot.role] = slot.chosen;
+                }
+            }
+
+            state.downloads.active = true;
+            state.failure = '';
+
+            call('/api/models/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selection: selection })
+            })
+                .then(function (data) {
+                    if (!data.queued) {
+                        // Ставить нечего: всё выбранное уже на диске.
+                        state.downloads = { active: false, items: [] };
+                        loadModels(state);
+                        return;
+                    }
+                    openEvents(state);
+                })
+                .catch(function (error) {
+                    state.downloads = { active: false, items: [] };
+                    state.failure = error.message;
+                });
+        };
+    });
+
     // Первый снимок читается сразу после появления страницы: $mount —
     // документированное место для начальной загрузки данных.
     //
@@ -279,7 +350,6 @@ $(function () {
     // после обновления: обработчик — одна функция, state первым аргументом,
     // this — вью.
     view.on('$mount', function (state) {
-        snapshot(state);
         loadModels(state);
     });
 

@@ -433,7 +433,7 @@ func buildModules(d deps) ([]core.Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	modelsModule, err := models.New(d.settings["models"])
+	modelsModule, err := models.New(d.disp, d.settings["models"])
 	if err != nil {
 		return nil, err
 	}
