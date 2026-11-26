@@ -39,7 +39,13 @@ $(function () {
     var events = null;
 
     var view = $('#app').state({
-        step: 'models',
+        // storage — значения, которые wex держит в localStorage: вкладка,
+        // открытая в прошлый раз, переживает обновление страницы.
+        storage: { step: 'models' },
+        // nav — куда сейчас можно попасть. Верхние пункты и нижние кнопки
+        // читают одни и те же поля, поэтому не могут разойтись: доступный
+        // шаг и нажимается, и ведёт.
+        nav: { models: true, world: false, hero: false },
         models: { server: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
         plan: { bytes: 0, text: '—', status: '—', ramGb: 0, ramText: '—', enough: true, paths: [] },
         world: {
@@ -337,6 +343,33 @@ $(function () {
         return { title: hero.title || '', note: hero.note || '', fields: fields };
     }
 
+    // recomputeNav отмечает, куда сейчас можно попасть: «Мир» — когда всё
+    // скачано (то же условие, что у кнопки «Далее»), «Герой» — когда есть
+    // открытый мир. Верхние пункты и нижние кнопки читают эти поля, поэтому
+    // разойтись между собой не могут.
+    function recomputeNav(state) {
+        state.nav.world = !!state.models.ready;
+        state.nav.hero = !!state.world.active;
+    }
+
+    // clampStep возвращает вкладку туда, куда можно попасть. Сохранённый шаг
+    // мог остаться от прошлой сессии: модели с тех пор не скачаны или мир
+    // удалён. Без сверки страница открыла бы шаг, которого ещё нет.
+    function clampStep(state) {
+        var step = state.storage.step;
+
+        if (step !== 'models' && step !== 'world' && step !== 'hero') {
+            step = 'models';
+        }
+        if (step === 'hero' && !state.nav.hero) {
+            step = state.nav.world ? 'world' : 'models';
+        }
+        if (step === 'world' && !state.nav.world) {
+            step = 'models';
+        }
+        state.storage.step = step;
+    }
+
     // heroField находит поле формы героя по имени.
     function heroField(state, id) {
         for (var i = 0; i < state.hero.fields.length; i++) {
@@ -485,6 +518,7 @@ $(function () {
                 state.progress = data.downloads.items;
                 state.downloads = { active: data.downloads.active, items: [] };
                 recomputePlan(state);
+                recomputeNav(state);
 
                 // Загрузка, начатая до перезагрузки страницы, продолжается:
                 // поток подключается к ней сразу, а не ждёт новой кнопки.
@@ -503,6 +537,7 @@ $(function () {
             .then(function (data) {
                 state.world = prepareWorld(data);
                 state.hero = prepareHero(data.hero || {});
+                recomputeNav(state);
             })
             .catch(function (error) {
                 state.failure = error.message;
@@ -579,22 +614,34 @@ $(function () {
         };
     });
 
-    // toWorld и toModels переключают шаг: экран один, меняется раздел.
-    view.method('toWorld', function (state) {
+    // goModels, goWorld, goHero переключают вкладку. Верхний пункт и нижняя
+    // кнопка зовут один и тот же обработчик, поэтому нажатие ведёт туда,
+    // куда обещает подпись. Доступность берётся из nav: недоступный шаг
+    // не открывается, даже если клик всё-таки пришёл.
+    view.method('goModels', function (state) {
         return function () {
-            state.step = 'world';
+            state.storage.step = 'models';
         };
     });
 
-    // continueWorld ведёт дальше по открытому миру: к рождению героя.
-    // Кнопка есть только на карточке мира, поэтому открытый мир здесь уже
-    // известен; проверка остаётся защитой от повторного нажатия.
-    view.method('continueWorld', function (state) {
+    view.method('goWorld', function (state) {
         return function () {
-            if (!state.world.active) {
+            if (!state.nav.world) {
                 return;
             }
-            state.step = 'hero';
+            // Форма нового мира — режим шага, а не его состояние: при входе
+            // в шаг показывается карточка открытого мира.
+            state.world.form = false;
+            state.storage.step = 'world';
+        };
+    });
+
+    view.method('goHero', function (state) {
+        return function () {
+            if (!state.nav.hero) {
+                return;
+            }
+            state.storage.step = 'hero';
         };
     });
 
@@ -668,12 +715,6 @@ $(function () {
                         state.failure = error.message;
                     }
                 });
-        };
-    });
-
-    view.method('toModels', function (state) {
-        return function () {
-            state.step = 'models';
         };
     });
 
@@ -803,8 +844,11 @@ $(function () {
     // после обновления: обработчик — одна функция, state первым аргументом,
     // this — вью.
     view.on('$mount', function (state) {
-        loadModels(state);
-        loadWorld(state);
+        // Оба снимка читаются параллельно, а вкладка из прошлой сессии
+        // проверяется, когда уже известно, куда можно попасть.
+        Promise.all([loadModels(state), loadWorld(state)]).then(function () {
+            clampStep(state);
+        });
     });
 
     view.mount();

@@ -297,10 +297,24 @@ body {
         border-radius: 999px;
         color: @text-muted;
         font-size: 13px;
+        // Курсор-рука обещает переход и стоит только у шага, куда можно
+        // попасть. Недоступный шаг остаётся обычным текстом, поэтому вид
+        // и поведение совпадают.
+        cursor: default;
+
+        &.link {
+            cursor: pointer;
+        }
+
+        &.off {
+            opacity: 0.5;
+        }
 
         &.current {
             border-color: @accent;
             color: @accent;
+            // Текущий шаг нажимать незачем: он уже открыт.
+            cursor: default;
         }
 
         &.done {

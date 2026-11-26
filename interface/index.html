@@ -38,14 +38,16 @@
             <p class="failure" w-if="failure">{{ failure }}</p>
 
             <nav class="steps">
-                <span class="step" w-on="click:toModels"
-                      w-class="{ 'current': step === 'models', 'done': step !== 'models' }">Модели</span>
-                <span class="step" w-on="click:toWorld"
-                      w-class="{ 'current': step === 'world', 'done': step === 'hero' }">Мир</span>
-                <span class="step" w-class="{ 'current': step === 'hero' }">Герой</span>
+                <span class="step" w-on="click:goModels"
+                      w-class="{ 'current': storage.step === 'models', 'done': storage.step !== 'models' }">Модели</span>
+                <span class="step" w-on="click:goWorld"
+                      w-class="{ 'current': storage.step === 'world', 'done': storage.step === 'hero',
+                                 'link': nav.world, 'off': !nav.world }">Мир</span>
+                <span class="step" w-on="click:goHero"
+                      w-class="{ 'current': storage.step === 'hero', 'link': nav.hero, 'off': !nav.hero }">Герой</span>
             </nav>
 
-            <section class="block" w-if="step === 'models'">
+            <section class="block" w-if="storage.step === 'models'">
                 <h2 class="caption">
                     Скачивание моделей
                     <span class="engine">domains/models</span>
@@ -124,11 +126,11 @@
                         Скачать выбранные
                     </button>
                     <span class="status" w-class="{ 'ok': !plan.bytes && models.server.found }">{{ plan.status }}</span>
-                    <button class="button" w-on="click:toWorld" w-disabled="!models.ready">Далее</button>
+                    <button class="button" w-on="click:goWorld" w-disabled="!nav.world">Далее</button>
                 </div>
             </section>
 
-            <section class="block" w-if="step === 'world'">
+            <section class="block" w-if="storage.step === 'world'">
                 <h2 class="caption">
                     Настройка мира
                     <span class="engine">domains/world</span>
@@ -155,7 +157,7 @@
                     </div>
                     <p class="world-status" w-class="{ 'ok': world.active.hero }">{{ world.active.status }}</p>
                     <div class="line">
-                        <button class="button" w-on="click:continueWorld">Продолжить</button>
+                        <button class="button" w-on="click:goHero">Продолжить</button>
                         <button class="button" w-on="click:newWorld">Новый мир</button>
                     </div>
                 </div>
@@ -225,12 +227,12 @@
 
                     <div class="line">
                         <button class="button" w-on="click:createWorld">Создать мир</button>
-                        <button class="button" w-on="click:toModels">Назад</button>
+                        <button class="button" w-on="click:goModels">Назад</button>
                     </div>
                 </div>
             </section>
 
-            <section class="block" w-if="step === 'hero'">
+            <section class="block" w-if="storage.step === 'hero'">
                 <h2 class="caption">
                     Герой
                     <span class="engine">domains/world</span>
@@ -262,7 +264,7 @@
 
                     <div class="line">
                         <button class="button" w-on="click:createHero">Начать</button>
-                        <button class="button" w-on="click:toWorld">Назад</button>
+                        <button class="button" w-on="click:goWorld">Назад</button>
                     </div>
                 </div>
             </section>
