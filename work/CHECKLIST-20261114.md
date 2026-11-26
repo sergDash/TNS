@@ -110,6 +110,23 @@ mechanics-from-chat.md. Статусы сверены с кодом на HEAD `8
 | DOC-3 решения в журнал/спеку | ✅ закрыт (2026-11-14) | DEC-1…4 записаны в журнал 99-LEDGER (:354–357) и в спеку: CB-03 (`06-chapter-book.md`), INT-10…12 (`09-acceptance.md`), B-14.4 (`03-birth.md`) |
 | DOC-4 `ui-check release`: веб-разметка | ✅ закрыт (57b526f, 2026-11-14) | Инлайн-скрипт → `static/wizard.js`; семь id сняты или оживлены; `ui-check release` зелёный |
 
+### Волна T-21 — таймеры, хуки, мастерская (план `work/TIMERS-HOOKS-WORKSHOP-PLAN-20261126.md`, 2026-11-26)
+
+| Пункт | Статус | Суть и проверка |
+|---|---|---|
+| T-21-01 `TestNoShortReadyBudget`: изоляция порта 5001 | ✅ закрыт (88e4dd9, 2026-11-26) | убрать зависимость от занятого 5001 (`Port: 0` или `WithCheckPort`-фейк); `go test ./internal/supervisor -run TestNoShortReadyBudget -count=1` |
+| T-21-02 `TestVerne`: порт ядра | ✅ закрыт (b02d8db, 2026-11-26) | динамический порт вместо фиксированного 8720 или fail-fast на занятом порту; `go test ./e2e -run TestVerne -count=1` |
+| T-21-03 статусы заказов | ✅ закрыт (cf318d2, 2026-11-26) | running→done/failed, без переисполнения на тике; `go test ./internal/workshop -count=1` |
+| T-21-04 диспетчер видов | ✅ закрыт (d1cf20c, 2026-11-26) | исполнитель по `Kind` вместо общего `slot.Generate`; `go test ./internal/workshop -count=1 && go build ./cmd/tns65` |
+| T-21-05 пауза от последней активности | ✅ закрыт (fc51783, 2026-11-26) | таймер инициализируется от последней реплики/`turns.created_at`; `go test ./internal/workshop/ ./internal/webapi/ -count=1` |
+| T-21-06 ночной `RunPythia` | ✅ закрыт (7000d18, 2026-11-26) | прогон карты игрока на ночной ступени; `go test ./internal/workshop -count=1` |
+| T-21-07 гороскоп по смене темы | ✅ закрыт (fbca24b, 2026-11-26) | `EnsureHoroscopeOrder` при смене темы; `go test ./internal/webapi/ ./internal/workshop/ -count=1` |
+| T-21-08 `MatchHoroscope` + промах→кандидаты | ✅ закрыт (c11f2cb, 2026-11-26) | сверка ранних векторов, промах в `SedimentCandidate`; `go test ./internal/webapi/ ./internal/workshop/ -count=1` |
+| T-21-09 переплавка после оседания | ✅ закрыт (3906d4a, 2026-11-26) | `RemeltScene` для сцен высокого доверия; `go test ./internal/workshop -count=1` |
+| T-21-10 доковка персонажей | ✅ закрыт (8f20652, 2026-11-26) | `EnsureComplementOrder` на тяжёлой ступени; `go test ./internal/workshop -count=1` |
+| T-21-11 цензор-согласование IMP-13 | ✅ закрыт (e9063ae, 2026-11-26) | доки/спека/тест под «цензора при ковке нет»; `bash scripts/gates.sh` (docs-check) |
+| T-21-12 варка по релевантности W-02 | ✅ закрыт (6d885a5, 2026-11-26) | выбор заготовок по пути (день/ночь, 2–5/сутки); `go test ./internal/workshop -count=1` |
+
 ## 3. Работы по маршрутизации провайдеров (Э1–Э6 закрыты 2026-11-14)
 
 - [x] Э1. Роутер + чат: `internal/providerroute`, `RoutedProseSlot`,
@@ -162,3 +179,7 @@ mechanics-from-chat.md. Статусы сверены с кодом на HEAD `8
 | Telegram-канал | 14.11 подтверждение | Работает: e8a6c60, 79e5888 (живой 404), 3c5b95c (INT-11), 0bc084d; смоук на проде закрыт |
 | Нумерация этапов Э1–Э6 | 14.11 | План маршрутизации переименован, правило в §12; чеклист согласован |
 | Пометки ✅ в FIX-плане | 14.11 | Баннер в шапке, §0, §5, §6 |
+| T-20-01 Конфиг и клиент эмбеддера (EMBEDDER-WIRING-PLAN-20261125) | 25.11 | ✅ закрыт (78dd1ae, 2026-11-25): embed_addr/model/timeout, EmbedClient, SetAtlasEmbed; ревью 2/3 |
+| T-20-02 Чат (turn): векторы реплики и векторный голос (EMBEDDER-WIRING-PLAN-20261125) | 25.11 | ✅ закрыт (5b6770c, 2026-11-25): chatEmbedder/SetChatEmbedder, Pipeline.Embedder→TurnState, проводка main.go; ревью 1/3 |
+| T-20-03 Варка и разбор книг (EMBEDDER-WIRING-PLAN-20261125) | 25.11 | ✅ закрыт (897c2e1, 2026-11-25): VectorLayer в runLayers, embedderForge→RunPipeline, эмбеддер в ребёнках; ревью 1/3 |
+| T-20-04 Воркер мастерской и оседание (EMBEDDER-WIRING-PLAN-20261125) | 25.11 | ✅ закрыт (23387c1, 2026-11-25): воркер-петля main.go, MarkActive из чата, SetChapterClosed, оседание конвейером; ревью 1/3 |
