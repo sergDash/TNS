@@ -46,11 +46,13 @@ $(function () {
             genres: [], orders: [], ratings: [], modes: [],
             title: '', slug: '', synopsis: '',
             socialOrder: '', censorship: '', travelMode: '',
-            errors: {}
+            errors: {},
+            // active — настройки открытого мира (null, когда мира нет).
+            // form — показывать форму нового мира вместо карточки.
+            active: null,
+            form: false
         },
         hero: { title: '', note: '', fields: [] },
-        created: null,
-        heroCreated: null,
         progress: [],
         downloads: { active: false, items: [] },
         diskText: '—',
@@ -235,7 +237,8 @@ $(function () {
 
     // prepareWorld строит состояние анкеты из перечней модуля: списки
     // приходят данными, а умолчания выставлены здесь, чтобы форма сразу
-    // была заполнена и её можно было отправить.
+    // была заполнена и её можно было отправить. Открытый мир приходит
+    // карточкой: экран показывает его вместо пустой формы.
     function prepareWorld(data) {
         var genre = pickDefault(data.genres, 'фэнтези');
         var order = pickDefault(data.socialOrders, 'феодализм');
@@ -254,8 +257,53 @@ $(function () {
             ratings: chips(data.ratings, rating),
             title: '', slug: '', synopsis: '',
             socialOrder: order, censorship: rating, travelMode: mode,
-            errors: emptyErrors()
+            errors: emptyErrors(),
+            active: prepareActive(data.active),
+            form: false
         };
+    }
+
+    // prepareActive переводит настройки открытого мира в вид для экрана:
+    // строки сведений собираются здесь, шаблон только выводит их. Поля
+    // карточки повторяют карточку мира старой версии: имя с пометкой
+    // «Активен», сведения и состояние героя.
+    function prepareActive(card) {
+        if (!card) {
+            return null;
+        }
+
+        var meta = [];
+        if (card.created_at) {
+            meta.push('рождён ' + formatDate(card.created_at));
+        }
+        meta.push(card.social_order);
+        meta.push('карта: ' + card.travel_mode);
+        meta.push(card.censorship);
+
+        var status = 'Герой ещё не рождён';
+        if (card.hero) {
+            status = card.hero_name ? 'Герой «' + card.hero_name + '» рождён' : 'Герой рождён';
+        }
+
+        return {
+            slug: card.slug,
+            title: card.title,
+            synopsis: card.synopsis,
+            genres: card.genres || [],
+            meta: meta.join(' · '),
+            status: status,
+            hero: !!card.hero
+        };
+    }
+
+    // formatDate показывает время рождения мира по-человечески: день месяц
+    // год. Время суток в карточке не нужно.
+    function formatDate(iso) {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) {
+            return '';
+        }
+        return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear();
     }
 
     // emptyErrors — полный набор полей анкеты с пустыми причинами. Строка
@@ -538,12 +586,28 @@ $(function () {
         };
     });
 
-    // toHero открывает шаг героя: он возможен только после рождения мира.
-    view.method('toHero', function (state) {
+    // continueWorld ведёт дальше по открытому миру: к рождению героя.
+    // Кнопка есть только на карточке мира, поэтому открытый мир здесь уже
+    // известен; проверка остаётся защитой от повторного нажатия.
+    view.method('continueWorld', function (state) {
         return function () {
-            if (state.created) {
-                state.step = 'hero';
+            if (!state.world.active) {
+                return;
             }
+            state.step = 'hero';
+        };
+    });
+
+    // newWorld показывает форму нового мира вместо карточки. Открытый мир
+    // при этом не теряется: он остаётся на диске, и после перезагрузки
+    // страницы карточка вернётся.
+    view.method('newWorld', function (state) {
+        return function () {
+            state.world.form = true;
+            state.world.title = '';
+            state.world.slug = '';
+            state.world.synopsis = '';
+            state.world.errors = emptyErrors();
         };
     });
 
@@ -572,10 +636,11 @@ $(function () {
         };
     });
 
-    // createHero отправляет ответы и рождает героя в базе мира.
+    // createHero отправляет ответы и рождает героя в базе мира. Мир берётся
+    // из карточки открытого мира: он уже рождён, поэтому адрес известен.
     view.method('createHero', function (state) {
         return function () {
-            if (!state.created) {
+            if (!state.world.active) {
                 return;
             }
 
@@ -587,13 +652,15 @@ $(function () {
             }
             state.failure = '';
 
-            call('/api/world/' + encodeURIComponent(state.created.slug) + '/hero', {
+            call('/api/world/' + encodeURIComponent(state.world.active.slug) + '/hero', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ answers: answers })
             })
-                .then(function (data) {
-                    state.heroCreated = data.hero;
+                .then(function () {
+                    state.world.active.hero = true;
+                    var name = answers.name || '';
+                    state.world.active.status = name ? 'Герой «' + name + '» рождён' : 'Герой рождён';
                 })
                 .catch(function (error) {
                     applyHeroErrors(state, error);
@@ -666,8 +733,12 @@ $(function () {
                     genres: pickedGenres(state)
                 })
             })
-                .then(function (data) {
-                    state.created = data.world;
+                .then(function () {
+                    // Мир рождён и уже открыт на сервере: экран перечитывает
+                    // перечни и получает карточку мира вместо формы. Отдельного
+                    // «создан» в стейте нет — открытый мир и есть результат.
+                    state.world.form = false;
+                    return loadWorld(state);
                 })
                 .catch(function (error) {
                     var fields = fieldErrors(error);

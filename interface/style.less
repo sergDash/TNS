@@ -383,6 +383,58 @@ body {
         background: fade(@ok, 6%);
     }
 
+    // Открытый мир карточкой: имя с пометкой «Активен», строка сведений,
+    // жанры и состояние героя. Раскладка повторяет карточку мира старой
+    // версии; форма нового мира живёт отдельно и на её место не встаёт.
+    .world {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+        border: 1px solid fade(@ok, 40%);
+        border-radius: 8px;
+        background: fade(@ok, 6%);
+
+        // Жанры в карточке только читаются: клик по ним ничего не выбирает,
+        // поэтому курсор не должен обещать нажатие.
+        .chip {
+            cursor: default;
+        }
+    }
+
+    .world-head {
+        .row(8px);
+
+        flex-wrap: wrap;
+        align-items: baseline;
+    }
+
+    .world-title {
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .world-badge {
+        padding: 2px 8px;
+        border: 1px solid fade(@ok, 40%);
+        border-radius: 999px;
+        color: @ok;
+        font-size: 11px;
+    }
+
+    .world-meta {
+        color: @text-muted;
+        font-size: 13px;
+    }
+
+    .world-status {
+        color: @text-muted;
+        font-size: 13px;
+
+        &.ok {
+            color: @ok;
+        }
+    }
+
     // Пути: куда ляжет каждый файл. Моноширинно и мелко — это адрес,
     // а не текст для чтения.
     .paths {

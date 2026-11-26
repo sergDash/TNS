@@ -156,13 +156,14 @@ func createWorld(path string, a Anketa, now time.Time) error {
 	return err
 }
 
-// WorldCard — мир для экрана: настройки мира, время рождения и признак
-// рождённого героя. Настройки читаются из базы мира, а не из отдельного
-// индекса: база — единственный источник истины о своём мире.
+// WorldCard — мир для экрана: настройки мира, время рождения и герой.
+// Настройки читаются из базы мира, а не из отдельного индекса: база —
+// единственный источник истины о своём мире.
 type WorldCard struct {
 	Anketa
 	CreatedAt string `json:"created_at"`
 	Hero      bool   `json:"hero"`
+	HeroName  string `json:"hero_name"`
 }
 
 // readWorld читает мир из его базы: у мира свой файл, поэтому строка одна.
@@ -191,9 +192,21 @@ func readWorld(path string) (WorldCard, bool, error) {
 	}
 
 	// Герой — отдельный шаг: экран по этому признаку решает, вести игрока
-	// к рождению героя или уже в мир.
-	if err := db.QueryRow(`SELECT EXISTS (SELECT 1 FROM hero)`).Scan(&card.Hero); err != nil {
+	// к рождению героя или уже в мир. Имя читается здесь же, чтобы экран
+	// не делал второй запрос ради одной строки.
+	var answers string
+	err = db.QueryRow(`SELECT answers FROM hero LIMIT 1`).Scan(&answers)
+	if errors.Is(err, sql.ErrNoRows) {
+		return card, true, nil
+	}
+	if err != nil {
 		return WorldCard{}, false, err
+	}
+
+	card.Hero = true
+	var fields map[string]string
+	if err := json.Unmarshal([]byte(answers), &fields); err == nil {
+		card.HeroName = fields["name"]
 	}
 	return card, true, nil
 }
