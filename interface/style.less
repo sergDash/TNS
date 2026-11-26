@@ -1,0 +1,402 @@
+/*
+    Стиль проекта.
+
+    Селектор состоит из одного слова, уникальность задаётся вложенностью:
+    .panel .title существует только внутри .panel и не задевает другие
+    блоки. Общие свойства собраны в миксины, чтобы одинаковые поверхности
+    и строки не расходились по файлу.
+
+    Отступы задаются через gap: панель, секции, строки и списки — сетки
+    или flex-контейнеры. margin в макете не используется; сброс margin: 0
+    у body остаётся, это не отступ между блоками.
+
+    Цвета — переменные Less. В разметке и JS конкретных цветов нет.
+*/
+
+@bg: #101418;
+@surface: #171d24;
+@border: #263041;
+@text: #e6e9ee;
+@text-muted: #8a94a6;
+@accent: #6ea8fe;
+@ok: #4ade80;
+@error: #f87171;
+
+// Поверхность карточки: фон, рамка, скругление.
+.surface() {
+    border: 1px solid @border;
+    border-radius: 12px;
+    background: @surface;
+}
+
+// Строка с выровненными по центру элементами и промежутком.
+.row(@gap: 10px) {
+    display: flex;
+    align-items: center;
+    gap: @gap;
+}
+
+// Круглый индикатор; цвет передаётся при вызове.
+.indicator(@color) {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: @color;
+    flex: none;
+}
+
+// Кнопка: та же рамка, что у поверхностей, и подсветка при наведении.
+.button() {
+    box-sizing: border-box;
+    padding: 8px 14px;
+    border: 1px solid @border;
+    border-radius: 8px;
+    background: transparent;
+    color: @text;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: @accent;
+        color: @accent;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+// Сброс отступов браузера: у заголовков, абзацев и списков есть свои поля,
+// а в макете отступы задаёт gap. Это сброс, а не отступ между блоками.
+h1,
+h2,
+p,
+ul {
+    margin: 0;
+}
+
+body {
+    // Сброс отступа браузера, а не отступ между блоками.
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    // Верхнее выравнивание: панель стала длинной и в центре по вертикали
+    // уезжала бы за верхний край окна.
+    place-items: start center;
+    padding: 24px;
+    background: @bg;
+    color: @text;
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.input {
+    box-sizing: border-box;
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid @border;
+    border-radius: 8px;
+    background: @bg;
+    color: @text;
+    font: inherit;
+    // Системная рамка фокуса вокруг поля выглядит грубо; вместо неё
+    // рамка меняет цвет, чтобы фокус оставался виден.
+    outline: none;
+
+    &:focus {
+        border-color: @accent;
+    }
+}
+
+// Списки. Три вида делят общую базу: поле с текущим значением и окно
+// пунктов. База — простой список; поиск и множественный выбор добавляют
+// к ней своё отдельными группами ниже.
+.select {
+    position: relative;
+    flex: none;
+    width: 100%;
+
+    .selected {
+        .row(8px);
+
+        justify-content: space-between;
+        padding: 8px 10px;
+        border: 1px solid @border;
+        border-radius: 8px;
+        background: @bg;
+        color: @text;
+        cursor: pointer;
+        user-select: none;
+
+        .value {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .caret {
+            flex: none;
+            color: @text-muted;
+        }
+
+        &:hover {
+            border-color: @accent;
+        }
+    }
+
+    // Открытый список подсвечивается той же рамкой, что и окно пунктов:
+    // иначе поле и выпадающий список выглядят как разные блоки.
+    &.open .selected {
+        border-color: @accent;
+    }
+
+    .options {
+        position: absolute;
+        // Отступ от поля задаётся положением, а не margin.
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 3;
+        width: 100%;
+        max-height: 240px;
+        overflow: auto;
+        border: 1px solid @accent;
+        border-radius: 8px;
+        background: @surface;
+        scrollbar-width: thin;
+        scrollbar-color: @border transparent;
+
+        .option {
+            padding: 6px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+
+            &:hover {
+                background: fade(@accent, 10%);
+            }
+
+        }
+    }
+}
+
+
+// Список с поиском: поле ввода над пунктами.
+.select.searchable .search {
+    display: grid;
+    gap: 6px;
+    padding: 6px;
+
+    .input {
+        flex: none;
+        width: 100%;
+    }
+}
+
+// Множественный выбор: отмеченные пункты выделены цветом.
+.select.multiple .option.picked {
+    color: @accent;
+}
+
+// Хост компонента: ширину задаёт родитель, список заполняет её.
+x-select {
+    display: inline-block;
+    flex: none;
+    vertical-align: middle;
+}
+
+.panel {
+    .surface();
+
+    display: grid;
+    gap: 20px;
+    align-content: start;
+    width: 100%;
+    /* max-width: 760px; не влезает контент */
+    max-width: min-content;
+    padding: 32px;
+
+    // Шапка: заголовок и вводный абзац.
+    .head {
+        display: grid;
+        gap: 12px;
+    }
+
+    .title {
+        font-size: 30px;
+        font-weight: 600;
+    }
+
+    .lead {
+        color: @text-muted;
+    }
+
+    // Секция возможности: отделена линией от предыдущей.
+    .block {
+        display: grid;
+        gap: 12px;
+        align-content: start;
+        padding-top: 20px;
+        border-top: 1px solid @border;
+    }
+
+    .caption {
+        .row(12px);
+
+        justify-content: space-between;
+        font-size: 24px;
+        font-weight: 600;
+    }
+
+    // Имя пакета движка, который показывает секция: ярлык с рамкой, чтобы
+    // взгляд цеплялся за него при прокрутке длинной страницы.
+    .engine {
+        padding: 2px 8px;
+        border: 1px solid fade(@accent, 40%);
+        border-radius: 999px;
+        background: fade(@accent, 8%);
+        color: @accent;
+        font-family: ui-monospace, "SFMono-Regular", monospace;
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+    }
+
+    .note {
+        color: @text-muted;
+        font-size: 14px;
+    }
+
+    // Строка формы: поля ввода и кнопка в один ряд.
+    .line {
+        .row();
+    }
+
+    // Две колонки для сравнения: обычные списки и списки-компоненты.
+    .columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+
+    // Колонка: подпись, список, подпись, список.
+    .column {
+        display: grid;
+        gap: 10px;
+        align-content: start;
+
+        // Компонент занимает ширину колонки, список заполняет его.
+        x-select,
+        x-select-search,
+        x-select-multi {
+            display: block;
+        }
+    }
+
+    .button {
+        .button();
+    }
+
+    // Таблица данных: строка на запись, мелкий моноширинный шрифт,
+    // чтобы номера и времена читались в столбец.
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+
+        th,
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid @border;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: @text-muted;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        // Заголовок остаётся на месте при прокрутке: иначе при чтении
+        // нижних строк непонятно, что за столбец.
+        thead th {
+            position: sticky;
+            top: 0;
+            background: @surface;
+        }
+
+        td {
+            font-family: ui-monospace, "SFMono-Regular", monospace;
+        }
+
+        // Длинный текст в ячейке: одна строка с многоточием,
+        // чтобы таблица не разъезжалась по ширине.
+        .text {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    .actions {
+        .row(12px);
+
+        padding-top: 20px;
+        border-top: 1px solid @border;
+        flex-wrap: wrap;
+    }
+
+    .hint {
+        color: @text-muted;
+        font-size: 13px;
+    }
+
+    .failure {
+        color: @error;
+        font-size: 14px;
+    }
+
+    // Подпись над таблицей: объясняет, что окно ограничено по высоте.
+    .label {
+        color: @text-muted;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    // Строка проверки связи: состояние и кнопка повтора запроса рядом.
+    .probe {
+        .row(12px);
+
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .status {
+        .row();
+
+        color: @text-muted;
+
+        .dot {
+            .indicator(@text-muted);
+        }
+
+        &.ok {
+            color: @ok;
+
+            .dot {
+                .indicator(@ok);
+            }
+        }
+
+        &.error {
+            color: @error;
+
+            .dot {
+                .indicator(@error);
+            }
+        }
+    }
+}

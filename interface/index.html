@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TNS — состояние</title>
+    <!-- Зелёная точка вкладки: без файла браузер просит /favicon.ico и получает 404. -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <!--
+        Исходник стилей — Less. less.js компилирует его в браузере,
+        поэтому сборщик для CSS не нужен. Скрипт идёт сразу после link:
+        он ищет все ссылки с rel="stylesheet/less".
+    -->
+    <link rel="stylesheet/less" type="text/css" href="/style.less">
+    <script src="/vendor/less.js"></script>
+</head>
+<body>
+    <!--
+        Шаблон wex. Движок читает его содержимое как виртуальное дерево
+        и вставляет отрисованный результат после самого <template>.
+        Идентификатор app — точка привязки для $('#app') в app.js.
+    -->
+    <template id="app">
+        <main class="panel">
+            <!--
+                Шапка не зависит от стейта, поэтому помечена w-static:
+                перерисовки её не касаются.
+            -->
+            <header class="head" w-static>
+                <h1 class="title">TrueNeverStory</h1>
+                <p class="lead">
+                    Мир, который отвечает текстом. Пока здесь каркас: сборка
+                    на движке go-wex, состояние процесса и элементы
+                    интерфейса, из которых собираются экраны. Экраны хода,
+                    книги и карты появляются по мере переезда.
+                </p>
+            </header>
+
+            <p class="failure" w-if="failure">{{ failure }}</p>
+
+            <section class="block">
+                <h2 class="caption">
+                    Состояние процесса
+                    <span class="engine">engine/httpapi</span>
+                </h2>
+                <p class="note">
+                    Ответ приходит в общем конверте: данные в result, ошибка
+                    в error, — поэтому клиенту не нужно угадывать форму.
+                    Кнопка повторяет запрос <code>GET /api/health</code>,
+                    чтобы его было видно в сетевой панели инструментов.
+                    По версии понятно, какая сборка запущена.
+                </p>
+                <div class="probe">
+                    <p class="status" w-class="{ 'ok': ok, 'error': !checking && !ok }">
+                        <span class="dot"></span>{{ status }}
+                    </p>
+                    <button class="button" w-on="click:check" w-disabled="checking">Проверить</button>
+                </div>
+                <p class="label" w-if="version">версия {{ version }}</p>
+            </section>
+
+            <section class="block">
+                <h2 class="caption">
+                    Селекторы
+                    <span class="engine">interface</span>
+                </h2>
+                <p class="note">
+                    Выпадающие списки сделаны из своих элементов, а не из
+                    браузерного <code>select</code>: так они выглядят одинаково
+                    и управляются тем же стейтом, что и остальная страница.
+                    Два способа — прямо в разметке и компонентом
+                    <code>x-select</code> — оставлены рядом: видно, чем они
+                    отличаются. Данные лежат локально, выбор никуда не
+                    отправляется.
+                </p>
+
+                <div class="columns">
+                    <div class="column">
+                        <p class="label">Обычные</p>
+
+                        <p class="label">Простой</p>
+                        <div class="select simple" w-class="{ 'open': selects.color.open }">
+                            <div class="selected" data-select="color" w-on="click:toggleSelect">
+                                <span class="value">{{ selects.color.label }}</span>
+                                <span class="caret">▾</span>
+                            </div>
+                            <div class="options" w-if="selects.color.open">
+                                <div class="option" w-for="item in colors traceby item"
+                                     data-select="color" data-value="{{ item }}"
+                                     w-on="click:pickSelect">{{ item }}</div>
+                            </div>
+                        </div>
+
+                        <p class="label">С поиском</p>
+                        <div class="select searchable" w-class="{ 'open': selects.city.open }">
+                            <div class="selected" data-select="city" w-on="click:toggleSelect">
+                                <span class="value">{{ selects.city.label }}</span>
+                                <span class="caret">▾</span>
+                            </div>
+                            <div class="options" w-if="selects.city.open">
+                                <div class="search">
+                                    <input class="input" w-bind="selects.city.query"
+                                           w-on="input:filterCities" w-focus placeholder="поиск">
+                                </div>
+                                <div class="option" w-for="item in cityMatches traceby item"
+                                     data-select="city" data-value="{{ item }}"
+                                     w-on="click:pickSelect">{{ item }}</div>
+                            </div>
+                        </div>
+
+                        <p class="label">Множественный</p>
+                        <div class="select multiple" w-class="{ 'open': selects.tags.open }">
+                            <div class="selected" data-select="tags" w-on="click:toggleSelect">
+                                <span class="value">{{ selects.tags.value.join(', ') || '— не выбрано —' }}</span>
+                                <span class="caret">▾</span>
+                            </div>
+                            <div class="options" w-if="selects.tags.open">
+                                <div class="option" w-for="item in tags traceby item"
+                                     w-class="{ 'picked': selects.tags.value.includes(item) }"
+                                     data-select="tags" data-value="{{ item }}"
+                                     w-on="click:pickSelect">{{ item }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="column">
+                        <p class="label">На компонентах</p>
+
+                        <p class="label">Простой</p>
+                        <x-select :items="colorItems" :value="componentColor"
+                                  @change="onComponentColor"></x-select>
+
+                        <p class="label">С поиском</p>
+                        <x-select-search :items="cityItems" :value="componentCity"
+                                         @change="onComponentCity"></x-select-search>
+
+                        <p class="label">Множественный</p>
+                        <x-select-multi :items="tagItems" :value="componentTags"
+                                        @change="onComponentTags"></x-select-multi>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="actions">
+                <button class="button" w-on="click:refresh" w-disabled="checking">
+                    Обновить всё
+                </button>
+                <span class="hint">
+                    Перечитывает состояние процесса. Опроса нет: данные
+                    меняются только после нажатия, пока не сделан канал
+                    обновлений (шаг «Поток в интерфейсе»).
+                </span>
+            </footer>
+        </main>
+    </template>
+
+    <!--
+        Компонент выпадающего списка. Разметка одна на все экземпляры,
+        состояние у каждого своё; выбранное значение уходит родителю
+        событием change.
+
+        Аудит wex, 2026-11-26. Это НЕ задание на переделку: код оставлен как
+        есть, перечисленное ниже — напоминание перепроверить при обновлении
+        wex (подробный список — в начале interface/app.js).
+
+        data-value — DOM-атрибут, поэтому значение пункта возвращается строкой,
+        даже если в items лежит число. Подсветка ниже сравнивает
+        value === item.value, так что числовые значения потеряют подсветку.
+        Сейчас значения строковые, поэтому не проявляется.
+
+        w-on="click:pick" опирается на то, что ядро подставляет найденный
+        элемент в event.currentTarget: из него pick берёт data-value.
+    -->
+    <template id="x-select">
+        <div class="select widget simple" w-class="{ 'open': open }">
+            <div class="selected" w-on="click:toggle">
+                <span class="value">{{ value || '— не выбрано —' }}</span>
+                <span class="caret">▾</span>
+            </div>
+            <div class="options" w-if="open">
+                <div class="option" w-for="item in items traceby item.value"
+                     w-class="{ 'picked': value === item.value }"
+                     data-value="{{ item.value }}"
+                     w-on="click:pick">{{ item.label }}</div>
+            </div>
+        </div>
+    </template>
+
+    <!--
+        Список с поиском. Аудит wex 2026-11-26: пункты берутся из matches —
+        это кэш, который пересчитывается только при открытии и при вводе.
+        Если родитель подменит :items при открытом меню, список покажет
+        старые пункты до закрытия. Сейчас items статические; подробности
+        и варианты — в комментарии к x-select-search в app.js.
+    -->
+    <template id="x-select-search">
+        <div class="select widget searchable" w-class="{ 'open': open }">
+            <div class="selected" w-on="click:toggle">
+                <span class="value">{{ value || '— не выбрано —' }}</span>
+                <span class="caret">▾</span>
+            </div>
+            <div class="options" w-if="open">
+                <div class="search">
+                    <input class="input" w-bind="query" w-on="input:filter"
+                           w-focus placeholder="поиск">
+                </div>
+                <div class="option" w-for="item in matches traceby item.value"
+                     data-value="{{ item.value }}" w-on="click:pick">{{ item.label }}</div>
+            </div>
+        </div>
+    </template>
+
+    <!--
+        Множественный выбор. Аудит wex 2026-11-26: value.join и value.includes
+        требуют массива — если в :value придёт строка или null, выражения
+        шаблона будут падать на каждом рендере. Значение пункта приходит
+        строкой из data-value, как и в двух списках выше.
+    -->
+    <template id="x-select-multi">
+        <div class="select widget multiple" w-class="{ 'open': open }">
+            <div class="selected" w-on="click:toggle">
+                <span class="value">{{ value.join(', ') || '— не выбрано —' }}</span>
+                <span class="caret">▾</span>
+            </div>
+            <div class="options" w-if="open">
+                <div class="option" w-for="item in items traceby item.value"
+                     w-class="{ 'picked': value.includes(item.value) }"
+                     data-value="{{ item.value }}" w-on="click:pick">{{ item.label }}</div>
+            </div>
+        </div>
+    </template>
+
+    <!--
+        Порядок важен: jQuery, затем wex, затем код приложения.
+
+        У wex 3 есть свой мини-$, и библиотека работает без jQuery. Проект
+        пока подключает jQuery первым: wex его подхватывает, и `$el`
+        в директивах остаётся полным jQuery. Проверенная связка важнее
+        экономии восьмидесяти килобайт: отказ от jQuery — отдельная правка
+        с проверкой всех экранов, а не побочный эффект обновления.
+    -->
+    <script src="/vendor/jquery.min.js"></script>
+    <script src="/vendor/wex.min.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>
