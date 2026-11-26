@@ -49,6 +49,7 @@ $(function () {
             errors: {}
         },
         created: null,
+        progress: [],
         downloads: { active: false, items: [] },
         diskText: '—',
         failure: ''
@@ -103,6 +104,7 @@ $(function () {
                 variants.push({
                     id: v.id,
                     title: v.title,
+                    key: v.key,
                     path: v.path,
                     bytes: v.bytes,
                     ramGb: v.ramGb,
@@ -127,17 +129,18 @@ $(function () {
         return { ready: data.ready, server: data.server, slots: slots, disk: data.disk };
     }
 
-    // prepareDownloads переводит строки прогресса в поля экрана: процент для
-    // полосы и подпись «сколько из сколького».
-    function prepareDownloads(data) {
-        var items = [];
+    // progressRow — одна строка полосы. Живой прогресс главнее: если по
+    // ключу пришли байты, показывается он. Иначе установленное — «готово»
+    // с полной полосой, а недостающее — прочерк: блок не прыгает и с
+    // первого экрана видно, где что будет.
+    function progressRow(title, key, installed, bytes, live) {
+        var item = live[key];
 
-        for (var i = 0; i < data.items.length; i++) {
-            var item = data.items[i];
+        if (item) {
             // «Готово» рисуется полной полосой даже когда размер неизвестен
             // (у сервера архив уже удалён, и его байтов не осталось).
             var percent = 0;
-            var text = '';
+            var text = '—';
 
             if (item.state === 'готово') {
                 percent = 100;
@@ -147,16 +150,64 @@ $(function () {
             if (item.total > 0) {
                 text = humanBytes(item.done) + ' из ' + humanBytes(item.total);
             }
-            items.push({
-                key: item.key,
-                title: item.title,
+            return {
+                key: key,
+                title: title,
                 state: item.state,
                 error: item.error || '',
                 percent: percent,
                 progressText: text
-            });
+            };
         }
-        return { active: data.active, items: items };
+
+        if (installed) {
+            return {
+                key: key,
+                title: title,
+                state: 'готово',
+                error: '',
+                percent: 100,
+                progressText: bytes > 0 ? humanBytes(bytes) : '—'
+            };
+        }
+        return { key: key, title: title, state: '—', error: '', percent: 0, progressText: '—' };
+    }
+
+    // renderProgress собирает строки под текущий выбор: сервер первой
+    // строкой, затем выбранные роли в порядке каталога. Список постоянный,
+    // поэтому полосы не появляются и не исчезают при выборе и загрузке.
+    function renderProgress(state) {
+        var live = {};
+        var rows = [];
+        var i;
+
+        for (i = 0; i < state.progress.length; i++) {
+            live[state.progress[i].key] = state.progress[i];
+        }
+
+        rows.push(progressRow(state.models.server.title, state.models.server.key,
+            state.models.server.found, 0, live));
+
+        for (i = 0; i < state.models.slots.length; i++) {
+            var slot = state.models.slots[i];
+            if (!slot.enabled) {
+                continue;
+            }
+
+            var chosen = null;
+            for (var j = 0; j < slot.variants.length; j++) {
+                if (slot.variants[j].id === slot.chosen) {
+                    chosen = slot.variants[j];
+                    break;
+                }
+            }
+            if (!chosen) {
+                continue;
+            }
+            rows.push(progressRow(chosen.title, chosen.key, chosen.installed, chosen.bytes, live));
+        }
+
+        state.downloads = { active: state.downloads.active, items: rows };
     }
 
     // pickDefault берёт желаемое значение из списка, а если его там нет —
@@ -295,6 +346,8 @@ $(function () {
         state.plan.ramText = humanRAM(resident + generator);
         state.plan.enough = state.models.disk.freeBytes >= bytes;
         state.plan.paths = paths;
+
+        renderProgress(state);
     }
 
     // call разбирает конверт и отдаёт только result; ошибка становится
@@ -325,7 +378,8 @@ $(function () {
             .then(function (data) {
                 state.models = prepareModels(data);
                 state.diskText = humanBytes(data.disk.freeBytes);
-                state.downloads = prepareDownloads(data.downloads);
+                state.progress = data.downloads.items;
+                state.downloads = { active: data.downloads.active, items: [] };
                 recomputePlan(state);
 
                 // Загрузка, начатая до перезагрузки страницы, продолжается:
@@ -362,7 +416,10 @@ $(function () {
         events.onmessage = function (event) {
             var data = JSON.parse(event.data);
 
-            state.downloads = prepareDownloads(data);
+            state.progress = data.items;
+            state.downloads.active = data.active;
+            renderProgress(state);
+
             if (!data.active) {
                 events.close();
                 events = null;
@@ -377,7 +434,7 @@ $(function () {
             }
             events.close();
             events = null;
-            state.downloads = { active: false, items: state.downloads.items };
+            state.downloads.active = false;
             state.failure = 'поток прогресса прерван';
         };
     }
@@ -509,8 +566,12 @@ $(function () {
                 }
             }
 
+            // Живой прогресс от прошлой загрузки не должен показываться
+            // поверх нового выбора: до ответа сервера строки — прочерки.
+            state.progress = [];
             state.downloads.active = true;
             state.failure = '';
+            renderProgress(state);
 
             call('/api/models/download', {
                 method: 'POST',
@@ -520,14 +581,15 @@ $(function () {
                 .then(function (data) {
                     if (!data.queued) {
                         // Ставить нечего: всё выбранное уже на диске.
-                        state.downloads = { active: false, items: [] };
+                        state.downloads.active = false;
                         loadModels(state);
                         return;
                     }
                     openEvents(state);
                 })
                 .catch(function (error) {
-                    state.downloads = { active: false, items: [] };
+                    state.downloads.active = false;
+                    renderProgress(state);
                     state.failure = error.message;
                 });
         };

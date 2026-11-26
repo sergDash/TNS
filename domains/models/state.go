@@ -64,6 +64,7 @@ type downloadState struct {
 type serverState struct {
 	Title   string `json:"title"`
 	File    string `json:"file"`
+	Key     string `json:"key"`
 	Found   bool   `json:"found"`
 	Path    string `json:"path"`
 	Version string `json:"version"`
@@ -79,6 +80,7 @@ type slotState struct {
 type variantState struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
+	Key       string `json:"key"`
 	File      string `json:"file"`
 	Bytes     int64  `json:"bytes"`
 	Approx    bool   `json:"approx"`
@@ -99,6 +101,7 @@ func snapshotOf(cfg Config, catalog Catalog) snapshot {
 		Server: serverState{
 			Title:   catalog.Server.Title,
 			File:    catalog.Server.File,
+			Key:     serverKey,
 			Version: catalog.Server.Version,
 			Path:    serverPath(cfg, catalog),
 			Found:   serverFound(cfg, catalog),
@@ -113,6 +116,7 @@ func snapshotOf(cfg Config, catalog Catalog) snapshot {
 			v := variantState{
 				ID:     variant.ID,
 				Title:  variant.Title,
+				Key:    modelKey(slot.Role, variant.File),
 				File:   variant.File,
 				Bytes:  variant.Bytes,
 				Approx: variant.Approx,
