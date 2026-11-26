@@ -21,7 +21,7 @@ type Config struct {
 
 const (
 	defaultCatalog = "config/models.json"
-	defaultDir     = "world_db/models"
+	defaultDir     = "models"
 	defaultBin     = "bin"
 )
 

@@ -29,13 +29,14 @@
     "settings": {
       "models": {
         "catalog": "config/models.json",
-        "dir": "world_db/models",
+        "dir": "models",
         "bin": "bin"
       },
       "world": {
         "schema": "schemas/world.schema.json",
         "config": "config/world.json",
-        "dir": "world_db/worlds"
+        "dir": "worlds",
+        "active": "config/active_world.json"
       }
     }
   },

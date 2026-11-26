@@ -8,14 +8,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"tns/engine/config"
 	"tns/engine/core"
 )
 
-// Config — настройки модуля: где лежат схема мира, выбранные значения и
-// каталог миров.
+// Config — настройки модуля: где лежат схема мира, выбранные значения,
+// каталог миров и файл выбора открытого мира.
 type Config struct {
 	// Schema — схема канона и формы героя.
 	Schema string `json:"schema"`
@@ -23,12 +24,15 @@ type Config struct {
 	Config string `json:"config"`
 	// Dir — каталог миров: <dir>/<адрес мира>/world.db.
 	Dir string `json:"dir"`
+	// Active — файл выбора: какой мир открыт в интерфейсе.
+	Active string `json:"active"`
 }
 
 const (
 	defaultSchema = "schemas/world.schema.json"
 	defaultConfig = "config/world.json"
-	defaultDir    = "world_db/worlds"
+	defaultDir    = "worlds"
+	defaultActive = "config/active_world.json"
 )
 
 func (c Config) withDefaults() Config {
@@ -41,17 +45,26 @@ func (c Config) withDefaults() Config {
 	if c.Dir == "" {
 		c.Dir = defaultDir
 	}
+	if c.Active == "" {
+		c.Active = defaultActive
+	}
 	return c
 }
 
-// module — модуль мира: отдаёт перечни анкеты и рождает мир.
+// module — модуль мира: отдаёт перечни анкеты, рождает мир и помнит, какой
+// мир открыт. Открытый мир хранится и в памяти, и в файле выбора: память
+// отвечает за текущий запрос, файл — за возврат после перезапуска.
 type module struct {
 	cfg   Config
 	lists Lists
+
+	mu     sync.RWMutex
+	active string
 }
 
 // New отдаёт модуль для точки сборки. settings — раздел
-// modules.settings.world: файл перечней и каталог миров.
+// modules.settings.world: схема, файл выбранного, каталог миров и файл
+// выбора открытого мира.
 func New(settings json.RawMessage) (core.Module, error) {
 	cfg := Config{}
 	if err := config.DecodeSection(settings, &cfg); err != nil {
@@ -63,41 +76,115 @@ func New(settings json.RawMessage) (core.Module, error) {
 	if err != nil {
 		return nil, fmt.Errorf("world: %w", err)
 	}
-	return module{cfg: cfg, lists: lists}, nil
+
+	m := &module{cfg: cfg, lists: lists}
+	if err := m.restoreActive(); err != nil {
+		return nil, fmt.Errorf("world: выбор мира: %w", err)
+	}
+	return m, nil
 }
 
-func (module) Name() string { return "world" }
+// restoreActive сверяет сохранённый выбор с мирами на диске. Удалённый мир
+// даёт пустой выбор, а запись при этом убирается: указатель не должен вести
+// в никуда. Если выбора нет, а мир ровно один — он открывается сам: свежий
+// экземпляр и мир с одним миром начинают с него, а не с пустой формы.
+func (m *module) restoreActive() error {
+	slugs, err := worldSlugs(m.cfg.Dir)
+	if err != nil {
+		return err
+	}
 
-func (m module) Register(r core.Registry) error {
+	active := readActive(m.cfg.Active)
+	exists := false
+	for _, slug := range slugs {
+		if slug == active {
+			exists = true
+			break
+		}
+	}
+
+	if !exists {
+		active = ""
+		if len(slugs) == 1 {
+			active = slugs[0]
+		}
+		if err := saveActive(m.cfg.Active, active); err != nil {
+			return err
+		}
+	}
+
+	m.active = active
+	return nil
+}
+
+// setActive запоминает открытый мир: в памяти сразу, в файле — как только
+// он записан. Ошибка записи не отменяет выбор в памяти: мир уже рождён и
+// открыт в этой сессии, а файл нужен только для следующего запуска.
+func (m *module) setActive(slug string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.active = slug
+	return saveActive(m.cfg.Active, slug)
+}
+
+// activeSlug отдаёт адрес открытого мира.
+func (m *module) activeSlug() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.active
+}
+
+func (*module) Name() string { return "world" }
+
+func (m *module) Register(r core.Registry) error {
 	r.HTTP("GET", "/api/world", m.anketa)
 	r.HTTP("POST", "/api/world", m.create)
 	r.HTTP("POST", "/api/world/{slug}/hero", m.createHero)
 	return nil
 }
 
-// anketaResponse — перечни для формы. Имена полей совпадают со стейтом
-// экрана; порядок списков задаёт канон, поэтому он сохраняется.
+// anketaResponse — перечни для формы и открытый мир. Имена полей совпадают
+// со стейтом экрана; порядок списков задаёт канон, поэтому он сохраняется.
+// Открытый мир — null, когда мира ещё нет: экран показывает форму.
 type anketaResponse struct {
-	Genres       []string `json:"genres"`
-	SocialOrders []string `json:"socialOrders"`
-	TravelModes  []string `json:"travelModes"`
-	Ratings      []string `json:"ratings"`
-	Hero         Hero     `json:"hero"`
+	Genres       []string   `json:"genres"`
+	SocialOrders []string   `json:"socialOrders"`
+	TravelModes  []string   `json:"travelModes"`
+	Ratings      []string   `json:"ratings"`
+	Hero         Hero       `json:"hero"`
+	Active       *WorldCard `json:"active"`
 }
 
-func (m module) anketa(*http.Request) (any, error) {
-	return anketaResponse{
+func (m *module) anketa(*http.Request) (any, error) {
+	resp := anketaResponse{
 		Genres:       m.lists.Genres,
 		SocialOrders: m.lists.SocialOrders,
 		TravelModes:  m.lists.TravelModes,
 		Ratings:      m.lists.Ratings,
 		Hero:         m.lists.Hero,
-	}, nil
+	}
+
+	slug := m.activeSlug()
+	if slug == "" {
+		return resp, nil
+	}
+
+	dbPath := filepath.Join(m.cfg.Dir, slug, "world.db")
+	card, ok, err := readWorld(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("открытый мир: %w", err)
+	}
+	if !ok {
+		return resp, nil
+	}
+	resp.Active = &card
+	return resp, nil
 }
 
 // create проверяет анкету и рождает мир. Проверка отделена от записи: при
 // отказе в базу не попадает ничего.
-func (m module) create(r *http.Request) (any, error) {
+func (m *module) create(r *http.Request) (any, error) {
 	var a Anketa
 	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
 		return nil, &core.Error{Status: http.StatusBadRequest, Message: "не разобрать анкету", Err: err}
@@ -137,6 +224,11 @@ func (m module) create(r *http.Request) (any, error) {
 		return nil, fmt.Errorf("рождение мира: %w", err)
 	}
 
+	// Новорождённый мир сразу открыт: второй раз игрок его не выбирает.
+	// Ошибка записи выбора не отменяет рождение — мир уже на диске, и выбор
+	// повторится при следующем создании или выборе.
+	_ = m.setActive(a.Slug)
+
 	return map[string]any{"world": map[string]string{"slug": a.Slug, "title": a.Title}}, nil
 }
 
@@ -147,7 +239,7 @@ type heroRequest struct {
 
 // createHero проверяет ответы и записывает героя в базу мира. Мир должен
 // существовать, а герой — ещё нет: второй герой в одном мире не рождается.
-func (m module) createHero(r *http.Request) (any, error) {
+func (m *module) createHero(r *http.Request) (any, error) {
 	slug := r.PathValue("slug")
 	if !slugRe.MatchString(slug) {
 		return nil, &core.Error{Status: http.StatusBadRequest, Message: "неверный адрес мира"}

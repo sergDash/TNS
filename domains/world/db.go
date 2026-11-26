@@ -156,28 +156,44 @@ func createWorld(path string, a Anketa, now time.Time) error {
 	return err
 }
 
+// WorldCard — мир для экрана: настройки мира, время рождения и признак
+// рождённого героя. Настройки читаются из базы мира, а не из отдельного
+// индекса: база — единственный источник истины о своём мире.
+type WorldCard struct {
+	Anketa
+	CreatedAt string `json:"created_at"`
+	Hero      bool   `json:"hero"`
+}
+
 // readWorld читает мир из его базы: у мира свой файл, поэтому строка одна.
-func readWorld(path string) (Anketa, bool, error) {
+func readWorld(path string) (WorldCard, bool, error) {
 	db, err := openWorld(path)
 	if err != nil {
-		return Anketa{}, false, err
+		return WorldCard{}, false, err
 	}
 	defer db.Close()
 
-	var a Anketa
+	var card WorldCard
 	var genres string
-	err = db.QueryRow(`SELECT slug, title, synopsis, lang, travel_mode, social_order, censorship, genres
+	err = db.QueryRow(`SELECT slug, title, synopsis, lang, travel_mode, social_order, censorship, genres, created_at
 		FROM worlds LIMIT 1`).
-		Scan(&a.Slug, &a.Title, &a.Synopsis, &a.Lang, &a.TravelMode, &a.SocialOrder, &a.Censorship, &genres)
+		Scan(&card.Slug, &card.Title, &card.Synopsis, &card.Lang, &card.TravelMode,
+			&card.SocialOrder, &card.Censorship, &genres, &card.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Anketa{}, false, nil
+		return WorldCard{}, false, nil
 	}
 	if err != nil {
-		return Anketa{}, false, err
+		return WorldCard{}, false, err
 	}
 
-	if err := json.Unmarshal([]byte(genres), &a.Genres); err != nil {
-		return Anketa{}, false, err
+	if err := json.Unmarshal([]byte(genres), &card.Genres); err != nil {
+		return WorldCard{}, false, err
 	}
-	return a, true, nil
+
+	// Герой — отдельный шаг: экран по этому признаку решает, вести игрока
+	// к рождению героя или уже в мир.
+	if err := db.QueryRow(`SELECT EXISTS (SELECT 1 FROM hero)`).Scan(&card.Hero); err != nil {
+		return WorldCard{}, false, err
+	}
+	return card, true, nil
 }
