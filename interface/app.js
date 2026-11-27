@@ -337,6 +337,7 @@ $(function () {
                 type: source[i].type,
                 options: source[i].options || [],
                 value: source[i].default || '',
+                default: source[i].default || '',
                 error: ''
             });
         }
@@ -368,6 +369,15 @@ $(function () {
             step = 'models';
         }
         state.storage.step = step;
+    }
+
+    // resetHero возвращает форму героя к умолчаниям схемы: герой относится
+    // к миру, поэтому у нового мира он не наследуется от прошлого.
+    function resetHero(state) {
+        for (var i = 0; i < state.hero.fields.length; i++) {
+            state.hero.fields[i].value = state.hero.fields[i].default;
+            state.hero.fields[i].error = '';
+        }
     }
 
     // heroField находит поле формы героя по имени.
@@ -629,9 +639,6 @@ $(function () {
             if (!state.nav.world) {
                 return;
             }
-            // Форма нового мира — режим шага, а не его состояние: при входе
-            // в шаг показывается карточка открытого мира.
-            state.world.form = false;
             state.storage.step = 'world';
         };
     });
@@ -647,10 +654,24 @@ $(function () {
 
     // newWorld показывает форму нового мира вместо карточки. Открытый мир
     // при этом не теряется: он остаётся на диске, и после перезагрузки
-    // страницы карточка вернётся.
+    // страницы карточка вернётся. Форма героя сбрасывается: герой прошлого
+    // мира к новому не относится.
     view.method('newWorld', function (state) {
         return function () {
             state.world.form = true;
+            state.world.title = '';
+            state.world.slug = '';
+            state.world.synopsis = '';
+            state.world.errors = emptyErrors();
+            resetHero(state);
+        };
+    });
+
+    // cancelNew закрывает форму нового мира и возвращает карточку открытого:
+    // введённое не сохраняется, мира ещё нет.
+    view.method('cancelNew', function (state) {
+        return function () {
+            state.world.form = false;
             state.world.title = '';
             state.world.slug = '';
             state.world.synopsis = '';

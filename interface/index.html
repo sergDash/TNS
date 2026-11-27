@@ -227,7 +227,8 @@
 
                     <div class="line">
                         <button class="button" w-on="click:createWorld">Создать мир</button>
-                        <button class="button" w-on="click:goModels">Назад</button>
+                        <button class="button" w-if="world.active" w-on="click:cancelNew">Отмена создания</button>
+                        <button class="button" w-if="!world.active" w-on="click:goModels">Назад</button>
                     </div>
                 </div>
             </section>
@@ -251,7 +252,7 @@
                     <div class="field" w-for="f in hero.fields traceby f.id">
                         <span class="label">{{ f.title }}</span>
                         <input class="input" w-if="f.type === 'text'" data-field="{{ f.id }}"
-                               w-on="input:setAnswer" placeholder="{{ f.hint }}">
+                               w-bind="f.value" w-on="input:setAnswer" placeholder="{{ f.hint }}">
                         <div class="chips" w-if="f.type === 'choice'">
                             <span class="chip" w-for="opt in f.options traceby opt"
                                   w-class="{ 'on': f.value === opt }"
