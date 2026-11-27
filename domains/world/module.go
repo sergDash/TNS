@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -140,23 +141,29 @@ func (*module) Name() string { return "world" }
 func (m *module) Register(r core.Registry) error {
 	r.HTTP("GET", "/api/world", m.anketa)
 	r.HTTP("POST", "/api/world", m.create)
+	r.HTTP("POST", "/api/world/{slug}/active", m.activate)
 	r.HTTP("POST", "/api/world/{slug}/hero", m.createHero)
 	return nil
 }
 
-// anketaResponse — перечни для формы и открытый мир. Имена полей совпадают
-// со стейтом экрана; порядок списков задаёт канон, поэтому он сохраняется.
-// Открытый мир — null, когда мира ещё нет: экран показывает форму.
+// anketaResponse — перечни для формы, форма героя и миры на диске. Имена
+// полей совпадают со стейтом экрана; порядок списков задаёт канон, поэтому
+// он сохраняется. Миры идут по времени рождения: книги стоят в том порядке,
+// в каком появились.
 type anketaResponse struct {
-	Genres       []string   `json:"genres"`
-	SocialOrders []string   `json:"socialOrders"`
-	TravelModes  []string   `json:"travelModes"`
-	Ratings      []string   `json:"ratings"`
-	Hero         Hero       `json:"hero"`
-	Active       *WorldCard `json:"active"`
+	Genres       []string    `json:"genres"`
+	SocialOrders []string    `json:"socialOrders"`
+	TravelModes  []string    `json:"travelModes"`
+	Ratings      []string    `json:"ratings"`
+	Hero         Hero        `json:"hero"`
+	Worlds       []WorldCard `json:"worlds"`
 }
 
-func (m *module) anketa(*http.Request) (any, error) {
+// listsResponse собирает перечни и мир-карточки: у каждого мира читаются его
+// настройки и признак героя, открытый мир помечается. Каталог миров
+// перечитывается на каждый запрос — миры рождаются редко, а список должен
+// показывать то, что лежит на диске.
+func (m *module) listsResponse() (anketaResponse, error) {
 	resp := anketaResponse{
 		Genres:       m.lists.Genres,
 		SocialOrders: m.lists.SocialOrders,
@@ -165,21 +172,55 @@ func (m *module) anketa(*http.Request) (any, error) {
 		Hero:         m.lists.Hero,
 	}
 
-	slug := m.activeSlug()
-	if slug == "" {
-		return resp, nil
+	slugs, err := worldSlugs(m.cfg.Dir)
+	if err != nil {
+		return resp, fmt.Errorf("каталог миров: %w", err)
+	}
+
+	active := m.activeSlug()
+	for _, slug := range slugs {
+		card, ok, err := readWorld(filepath.Join(m.cfg.Dir, slug, "world.db"))
+		if err != nil {
+			return resp, fmt.Errorf("мир %s: %w", slug, err)
+		}
+		if !ok {
+			continue
+		}
+		card.Active = slug == active
+		resp.Worlds = append(resp.Worlds, card)
+	}
+
+	sort.Slice(resp.Worlds, func(i, j int) bool {
+		if resp.Worlds[i].CreatedAt != resp.Worlds[j].CreatedAt {
+			return resp.Worlds[i].CreatedAt < resp.Worlds[j].CreatedAt
+		}
+		return resp.Worlds[i].Slug < resp.Worlds[j].Slug
+	})
+	return resp, nil
+}
+
+func (m *module) anketa(*http.Request) (any, error) {
+	return m.listsResponse()
+}
+
+// activate открывает выбранный мир: адрес становится открытым, а экран
+// получает свежие перечни и карточки. Мир, которого нет на диске, — 404:
+// открывать нечего.
+func (m *module) activate(r *http.Request) (any, error) {
+	slug := r.PathValue("slug")
+	if !slugRe.MatchString(slug) {
+		return nil, &core.Error{Status: http.StatusBadRequest, Message: "неверный адрес мира"}
 	}
 
 	dbPath := filepath.Join(m.cfg.Dir, slug, "world.db")
-	card, ok, err := readWorld(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("открытый мир: %w", err)
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, &core.Error{Status: http.StatusNotFound, Message: "мир не найден"}
 	}
-	if !ok {
-		return resp, nil
+
+	if err := m.setActive(slug); err != nil {
+		return nil, fmt.Errorf("открыть мир: %w", err)
 	}
-	resp.Active = &card
-	return resp, nil
+	return m.listsResponse()
 }
 
 // create проверяет анкету и рождает мир. Проверка отделена от записи: при

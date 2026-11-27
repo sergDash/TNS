@@ -243,8 +243,8 @@ $(function () {
 
     // prepareWorld строит состояние анкеты из перечней модуля: списки
     // приходят данными, а умолчания выставлены здесь, чтобы форма сразу
-    // была заполнена и её можно было отправить. Открытый мир приходит
-    // карточкой: экран показывает его вместо пустой формы.
+    // была заполнена и её можно было отправить. Миры приходят карточками;
+    // открытый мир ищется среди них по пометке.
     function prepareWorld(data) {
         var genre = pickDefault(data.genres, 'фэнтези');
         var order = pickDefault(data.socialOrders, 'феодализм');
@@ -256,6 +256,17 @@ $(function () {
             genres.push({ title: data.genres[i], on: data.genres[i] === genre });
         }
 
+        var list = [];
+        var active = null;
+        var source = data.worlds || [];
+        for (var j = 0; j < source.length; j++) {
+            var card = prepareCard(source[j]);
+            list.push(card);
+            if (card.active) {
+                active = card;
+            }
+        }
+
         return {
             genres: genres,
             orders: chips(data.socialOrders, order),
@@ -264,20 +275,16 @@ $(function () {
             title: '', slug: '', synopsis: '',
             socialOrder: order, censorship: rating, travelMode: mode,
             errors: emptyErrors(),
-            active: prepareActive(data.active),
+            list: list,
+            active: active,
             form: false
         };
     }
 
-    // prepareActive переводит настройки открытого мира в вид для экрана:
-    // строки сведений собираются здесь, шаблон только выводит их. Поля
-    // карточки повторяют карточку мира старой версии: имя с пометкой
-    // «Активен», сведения и состояние героя.
-    function prepareActive(card) {
-        if (!card) {
-            return null;
-        }
-
+    // prepareCard переводит настройки мира в вид для карточки: строки
+    // сведений собираются здесь, шаблон только выводит их. Так же мир
+    // выглядел в старой версии: имя, сведения, состояние героя и действия.
+    function prepareCard(card) {
         var meta = [];
         if (card.created_at) {
             meta.push('рождён ' + formatDate(card.created_at));
@@ -286,9 +293,11 @@ $(function () {
         meta.push('карта: ' + card.travel_mode);
         meta.push(card.censorship);
 
-        var status = 'Герой ещё не рождён';
+        var heroText = 'Герой не рождён';
+        var bornText = '';
         if (card.hero) {
-            status = card.hero_name ? 'Герой «' + card.hero_name + '» рождён' : 'Герой рождён';
+            heroText = card.hero_name ? 'Герой «' + card.hero_name + '»' : 'Герой рождён';
+            bornText = card.hero_name ? 'Герой «' + card.hero_name + '» рождён' : 'Герой рождён';
         }
 
         return {
@@ -297,8 +306,10 @@ $(function () {
             synopsis: card.synopsis,
             genres: card.genres || [],
             meta: meta.join(' · '),
-            status: status,
-            hero: !!card.hero
+            hero: !!card.hero,
+            heroText: heroText,
+            bornText: bornText,
+            active: !!card.active
         };
     }
 
@@ -652,6 +663,36 @@ $(function () {
         };
     });
 
+    // switchWorld открывает другой мир: адрес уходит на сервер, а экран
+    // получает свежие карточки. Герой прошлого мира к новому не относится,
+    // поэтому его форма сбрасывается, а открытый шаг героя возвращается
+    // к «Миру».
+    view.method('switchWorld', function (state) {
+        return function (event) {
+            var slug = event.currentTarget.dataset.slug;
+            if (!slug) {
+                return;
+            }
+            if (state.world.active && state.world.active.slug === slug) {
+                return;
+            }
+            state.failure = '';
+
+            call('/api/world/' + encodeURIComponent(slug) + '/active', { method: 'POST' })
+                .then(function (data) {
+                    state.world = prepareWorld(data);
+                    state.hero = prepareHero(data.hero || {});
+                    recomputeNav(state);
+                    if (state.storage.step === 'hero') {
+                        state.storage.step = 'world';
+                    }
+                })
+                .catch(function (error) {
+                    state.failure = error.message;
+                });
+        };
+    });
+
     // newWorld показывает форму нового мира вместо карточки. Открытый мир
     // при этом не теряется: он остаётся на диске, и после перезагрузки
     // страницы карточка вернётся. Форма героя сбрасывается: герой прошлого
@@ -726,9 +767,12 @@ $(function () {
                 body: JSON.stringify({ answers: answers })
             })
                 .then(function () {
-                    state.world.active.hero = true;
                     var name = answers.name || '';
-                    state.world.active.status = name ? 'Герой «' + name + '» рождён' : 'Герой рождён';
+                    if (state.world.active) {
+                        state.world.active.hero = true;
+                        state.world.active.heroText = name ? 'Герой «' + name + '»' : 'Герой рождён';
+                        state.world.active.bornText = name ? 'Герой «' + name + '» рождён' : 'Герой рождён';
+                    }
                 })
                 .catch(function (error) {
                     applyHeroErrors(state, error);

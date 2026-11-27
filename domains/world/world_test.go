@@ -291,3 +291,45 @@ func TestConfigOutsideCanon(t *testing.T) {
 		}
 	}
 }
+
+// TestListWorlds — карточки читаются из папок миров, идут по времени
+// рождения, а открытый мир помечен: по этим полям экран строит сетку.
+func TestListWorlds(t *testing.T) {
+	dir := t.TempDir()
+
+	first := validAnketa()
+	first.Slug = "first-book"
+	first.Title = "Первая книга"
+	second := validAnketa()
+	second.Slug = "second-book"
+	second.Title = "Вторая книга"
+
+	if err := createWorld(filepath.Join(dir, "second-book", "world.db"), second, time.Date(2026, 11, 27, 9, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("второй мир: %v", err)
+	}
+	if err := createWorld(filepath.Join(dir, "first-book", "world.db"), first, time.Date(2026, 11, 26, 9, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("первый мир: %v", err)
+	}
+	if err := createHero(filepath.Join(dir, "first-book", "world.db"), map[string]string{"name": "Анна"}, time.Now().UTC()); err != nil {
+		t.Fatalf("герой: %v", err)
+	}
+
+	m := &module{cfg: Config{Dir: dir}, active: "second-book"}
+	resp, err := m.listsResponse()
+	if err != nil {
+		t.Fatalf("карточки: %v", err)
+	}
+
+	if len(resp.Worlds) != 2 {
+		t.Fatalf("миров: %d", len(resp.Worlds))
+	}
+	if resp.Worlds[0].Slug != "first-book" || resp.Worlds[1].Slug != "second-book" {
+		t.Fatalf("порядок миров: %s, %s", resp.Worlds[0].Slug, resp.Worlds[1].Slug)
+	}
+	if !resp.Worlds[0].Hero || resp.Worlds[0].HeroName != "Анна" {
+		t.Fatalf("герой первого мира: %+v", resp.Worlds[0])
+	}
+	if resp.Worlds[0].Active || !resp.Worlds[1].Active {
+		t.Fatalf("пометка открытого мира: %v, %v", resp.Worlds[0].Active, resp.Worlds[1].Active)
+	}
+}

@@ -133,34 +133,44 @@
                     Настройка мира
                     <span class="engine">domains/world</span>
                 </h2>
-                <p class="note" w-if="world.active && !world.form">
-                    Этот мир открыт: можно продолжить с ним или завести новый.
+                <p class="note" w-if="world.list.length && !world.form">
+                    Это миры на этой машине. Открытый отмечен, «Открыть» переключает мир.
                 </p>
-                <p class="note" w-if="!world.active || world.form">
+                <p class="note" w-if="!world.list.length || world.form">
                     Отвечать долго не нужно: названия, нескольких слов о мире
                     и выбора из списков хватит. Всё остальное уточнится позже.
                 </p>
 
-                <!-- Открытый мир карточкой: имя с пометкой, сведения,
-                     жанры и состояние героя. Так же мир выглядел в старой
-                     версии — карточкой, а форма жила отдельно. -->
-                <div class="world" w-if="world.active && !world.form">
-                    <div class="world-head">
-                        <span class="world-title">{{ world.active.title }}</span>
-                        <span class="world-badge">Активен</span>
+                <!-- Миры карточками, как в старой версии: имя с пометкой,
+                     сведения, жанры и состояние героя. Первая карточка —
+                     создание нового мира; форма открывается вместо сетки. -->
+                <div class="worlds" w-if="world.list.length && !world.form">
+                    <div class="world-new" w-on="click:newWorld">
+                        <span class="world-new-plus">+</span>
+                        <span class="world-new-title">Создать мир</span>
+                        <span class="world-new-hint">Анкета откроется здесь</span>
                     </div>
-                    <p class="world-meta">{{ world.active.meta }}</p>
-                    <div class="chips">
-                        <span class="chip on" w-for="genre in world.active.genres traceby genre">{{ genre }}</span>
-                    </div>
-                    <p class="world-status" w-class="{ 'ok': world.active.hero }">{{ world.active.status }}</p>
-                    <div class="line">
-                        <button class="button" w-on="click:goHero">Играть</button>
-                        <button class="button" w-on="click:newWorld">Новый мир</button>
-                    </div>
+
+                    <article class="world-card" w-for="w in world.list traceby w.slug"
+                             w-class="{ 'active': w.active }">
+                        <div class="world-head">
+                            <span class="world-title">{{ w.title }}</span>
+                            <span class="world-badge" w-if="w.active">Активен</span>
+                        </div>
+                        <p class="world-meta">{{ w.meta }}</p>
+                        <div class="chips">
+                            <span class="chip on" w-for="genre in w.genres traceby genre">{{ genre }}</span>
+                        </div>
+                        <p class="world-status" w-class="{ 'ok': w.hero }">{{ w.heroText }}</p>
+                        <div class="line">
+                            <button class="button" w-if="w.active" w-on="click:goHero">Играть</button>
+                            <button class="button" w-if="!w.active" w-on="click:switchWorld"
+                                    data-slug="{{ w.slug }}">Открыть</button>
+                        </div>
+                    </article>
                 </div>
 
-                <div class="form" w-if="!world.active || world.form">
+                <div class="form" w-if="world.form || !world.list.length">
                     <div class="field">
                         <span class="label">Название мира</span>
                         <input class="input" w-bind="world.title" placeholder="Тёмное королевство">
@@ -225,8 +235,8 @@
 
                     <div class="line">
                         <button class="button" w-on="click:createWorld">Создать мир</button>
-                        <button class="button" w-if="world.active" w-on="click:cancelNew">Отмена создания</button>
-                        <button class="button" w-if="!world.active" w-on="click:goModels">Назад</button>
+                        <button class="button" w-if="world.list.length" w-on="click:cancelNew">Отмена создания</button>
+                        <button class="button" w-if="!world.list.length" w-on="click:goModels">Назад</button>
                     </div>
                 </div>
             </section>
@@ -239,7 +249,7 @@
                 <p class="note">{{ hero.note }}</p>
 
                 <div class="created" w-if="world.active && world.active.hero">
-                    <p>{{ world.active.status }}.</p>
+                    <p>{{ world.active.bornText }}.</p>
                     <p class="hint">
                         Дальше — первый ход: реплика игрока и ответ мира.
                         Это следующая работа переезда.

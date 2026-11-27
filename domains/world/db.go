@@ -156,14 +156,15 @@ func createWorld(path string, a Anketa, now time.Time) error {
 	return err
 }
 
-// WorldCard — мир для экрана: настройки мира, время рождения и герой.
-// Настройки читаются из базы мира, а не из отдельного индекса: база —
-// единственный источник истины о своём мире.
+// WorldCard — мир для экрана: настройки мира, время рождения, герой и
+// признак открытого мира. Настройки читаются из базы мира, а не из
+// отдельного индекса: база — единственный источник истины о своём мире.
 type WorldCard struct {
 	Anketa
 	CreatedAt string `json:"created_at"`
 	Hero      bool   `json:"hero"`
 	HeroName  string `json:"hero_name"`
+	Active    bool   `json:"active"`
 }
 
 // readWorld читает мир из его базы: у мира свой файл, поэтому строка одна.

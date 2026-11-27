@@ -397,22 +397,64 @@ body {
         background: fade(@ok, 6%);
     }
 
-    // Открытый мир карточкой: имя с пометкой «Активен», строка сведений,
-    // жанры и состояние героя. Раскладка повторяет карточку мира старой
-    // версии; форма нового мира живёт отдельно и на её место не встаёт.
-    .world {
+    // Миры карточками: сетка как у моделей, чтобы несколько миров читались
+    // рядом. Открытый мир — та же карточка с пометкой и своей рамкой, а не
+    // отдельный блок: так карточка не выдаёт себя за настройку.
+    .worlds {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .world-card {
+        .surface();
+
         display: grid;
         gap: 8px;
+        align-content: start;
         padding: 14px;
-        border: 1px solid fade(@ok, 40%);
-        border-radius: 8px;
-        background: fade(@ok, 6%);
+
+        &.active {
+            border-color: fade(@ok, 40%);
+            background: fade(@ok, 6%);
+        }
 
         // Жанры в карточке только читаются: клик по ним ничего не выбирает,
         // поэтому курсор не должен обещать нажатие.
         .chip {
             cursor: default;
         }
+    }
+
+    // Пустая карточка «Создать мир»: первая в сетке, пунктирная рамка.
+    // Высота как у соседних карточек, чтобы сетка не прыгала при рождении
+    // нового мира.
+    .world-new {
+        display: grid;
+        gap: 4px;
+        place-content: center;
+        justify-items: center;
+        min-height: 140px;
+        padding: 14px;
+        border: 1px dashed @border;
+        border-radius: 12px;
+        color: @text-muted;
+        text-align: center;
+        cursor: pointer;
+    }
+
+    .world-new-plus {
+        font-size: 20px;
+    }
+
+    .world-new-title {
+        color: @text;
+        font-size: 14px;
+    }
+
+    .world-new-hint {
+        font-size: 12px;
     }
 
     .world-head {
@@ -423,7 +465,7 @@ body {
     }
 
     .world-title {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 600;
     }
 
