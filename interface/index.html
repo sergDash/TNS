@@ -41,10 +41,8 @@
                 <span class="step" w-on="click:goModels"
                       w-class="{ 'current': storage.step === 'models', 'done': storage.step !== 'models' }">Модели</span>
                 <span class="step" w-on="click:goWorld"
-                      w-class="{ 'current': storage.step === 'world', 'done': storage.step === 'hero',
+                      w-class="{ 'current': storage.step === 'world' || storage.step === 'hero',
                                  'link': nav.world, 'off': !nav.world }">Мир</span>
-                <span class="step" w-on="click:goHero"
-                      w-class="{ 'current': storage.step === 'hero', 'link': nav.hero, 'off': !nav.hero }">Герой</span>
             </nav>
 
             <section class="block" w-if="storage.step === 'models'">
@@ -157,7 +155,7 @@
                     </div>
                     <p class="world-status" w-class="{ 'ok': world.active.hero }">{{ world.active.status }}</p>
                     <div class="line">
-                        <button class="button" w-on="click:goHero">Продолжить</button>
+                        <button class="button" w-on="click:goHero">Играть</button>
                         <button class="button" w-on="click:newWorld">Новый мир</button>
                     </div>
                 </div>
