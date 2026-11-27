@@ -238,44 +238,75 @@
                 </div>
             </section>
 
-            <section class="block" w-if="storage.step === 'game' && world.active">
-                <h2 class="caption">
-                    {{ world.active.title }}
-                    <span class="engine">domains/world</span>
-                </h2>
-                <p class="note" w-if="!world.active.hero">{{ hero.note }}</p>
+            <section class="game" w-if="storage.step === 'game' && world.active">
+                <!-- Верхняя панель как в старой версии: Атлас, История, MCP,
+                     Настройки и Чат. Работают те пункты, у которых есть
+                     экран; остальные приглушены и названы честно. -->
+                <nav class="game-bar">
+                    <button class="game-tab" w-on="click:goWorld">Атлас</button>
+                    <span class="game-tab off" title="Появится позже">История</span>
+                    <span class="game-tab off" title="Появится позже">MCP</span>
+                    <button class="game-tab" w-on="click:goModels">Настройки</button>
+                    <span class="game-tab current">Чат</span>
+                </nav>
 
-                <div class="created" w-if="world.active.hero">
-                    <p>{{ world.active.bornText }}.</p>
-                    <p class="hint">
-                        Дальше — первый ход: реплика игрока и ответ мира.
-                        Это следующая работа переезда.
+                <!-- Панель персонажа над чатом: имя и характеристики из базы
+                     мира. Здоровье и настроение приходят из слоя состояния. -->
+                <div class="hero-panel" w-if="world.active.hero">
+                    <p class="hero-title">{{ world.active.hero.name }}</p>
+                    <div class="hero-stats">
+                        <span class="hero-stat">Происхождение: {{ world.active.hero.estate }}</span>
+                        <span class="hero-stat">Как оказался: {{ world.active.hero.arrival }}</span>
+                        <span class="hero-stat">Здоровье: {{ world.active.hero.health }}</span>
+                        <span class="hero-stat">Настроение: {{ world.active.hero.mood }}</span>
+                    </div>
+                </div>
+
+                <div class="hero-panel empty" w-if="!world.active.hero">
+                    <span class="hero-missing">Героя ещё нет</span>
+                    <button class="button" w-on="click:openHero">Создать героя</button>
+                </div>
+
+                <!-- Чат: пока пустой. Переписка появится с контуром хода. -->
+                <div class="chat">
+                    <p class="note">
+                        Здесь будет переписка с миром. Первый ход — следующая
+                        работа переезда.
                     </p>
                 </div>
 
-                <div class="form" w-if="!world.active.hero">
-                    <div class="field" w-for="f in hero.fields traceby f.id">
-                        <span class="label">{{ f.title }}</span>
-                        <input class="input" w-if="f.type === 'text'" data-field="{{ f.id }}"
-                               w-bind="f.value" w-on="input:setAnswer" placeholder="{{ f.hint }}">
-                        <div class="chips" w-if="f.type === 'choice'">
-                            <span class="chip" w-for="opt in f.options traceby opt"
-                                  w-class="{ 'on': f.value === opt }"
-                                  data-field="{{ f.id }}" data-value="{{ opt }}"
-                                  w-on="click:pickAnswer">{{ opt }}</span>
+                <!-- Создание героя модальным окном: затемнённый экран и форма
+                     внутри. Закрывается «Отменой» или кликом по фону. -->
+                <div class="modal" w-if="heroForm">
+                    <div class="modal-backdrop" w-on="click:closeHero"></div>
+                    <div class="modal-panel">
+                        <h2 class="caption">
+                            Герой
+                            <span class="engine">domains/world</span>
+                        </h2>
+                        <p class="note">{{ hero.note }}</p>
+
+                        <div class="form">
+                            <div class="field" w-for="f in hero.fields traceby f.id">
+                                <span class="label">{{ f.title }}</span>
+                                <input class="input" w-if="f.type === 'text'" data-field="{{ f.id }}"
+                                       w-bind="f.value" w-on="input:setAnswer" placeholder="{{ f.hint }}">
+                                <div class="chips" w-if="f.type === 'choice'">
+                                    <span class="chip" w-for="opt in f.options traceby opt"
+                                          w-class="{ 'on': f.value === opt }"
+                                          data-field="{{ f.id }}" data-value="{{ opt }}"
+                                          w-on="click:pickAnswer">{{ opt }}</span>
+                                </div>
+                                <p class="hint" w-if="f.type !== 'text'">{{ f.hint }}</p>
+                                <p class="reason">{{ f.error }}</p>
+                            </div>
+
+                            <div class="line">
+                                <button class="button" w-on="click:createHero">Начать</button>
+                                <button class="button" w-on="click:closeHero">Отмена</button>
+                            </div>
                         </div>
-                        <p class="hint" w-if="f.type !== 'text'">{{ f.hint }}</p>
-                        <p class="reason">{{ f.error }}</p>
                     </div>
-
-                    <div class="line">
-                        <button class="button" w-on="click:createHero">Начать</button>
-                        <button class="button" w-on="click:goWorld">Настройки мира</button>
-                    </div>
-                </div>
-
-                <div class="line" w-if="world.active.hero">
-                    <button class="button" w-on="click:goWorld">Настройки мира</button>
                 </div>
             </section>
 

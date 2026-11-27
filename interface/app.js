@@ -59,6 +59,9 @@ $(function () {
             active: null
         },
         hero: { title: '', note: '', fields: [] },
+        // heroForm — открыто ли окно рождения героя. Это состояние экрана,
+        // а не мира: после перезагрузки окно закрыто, герой остаётся.
+        heroForm: false,
         progress: [],
         downloads: { active: false, items: [] },
         diskText: '—',
@@ -292,11 +295,10 @@ $(function () {
         meta.push('карта: ' + card.travel_mode);
         meta.push(card.censorship);
 
+        var hero = card.hero || null;
         var heroText = 'Герой не рождён';
-        var bornText = '';
-        if (card.hero) {
-            heroText = card.hero_name ? 'Герой «' + card.hero_name + '»' : 'Герой рождён';
-            bornText = card.hero_name ? 'Герой «' + card.hero_name + '» рождён' : 'Герой рождён';
+        if (hero) {
+            heroText = hero.name ? 'Герой «' + hero.name + '»' : 'Герой рождён';
         }
 
         return {
@@ -305,9 +307,8 @@ $(function () {
             synopsis: card.synopsis,
             genres: card.genres || [],
             meta: meta.join(' · '),
-            hero: !!card.hero,
+            hero: hero,
             heroText: heroText,
-            bornText: bornText,
             active: !!card.active
         };
     }
@@ -749,6 +750,20 @@ $(function () {
         };
     });
 
+    // openHero и closeHero открывают и закрывают окно рождения героя.
+    // Введённое остаётся в стейте: закрыть окно — не значит стереть ответы.
+    view.method('openHero', function (state) {
+        return function () {
+            state.heroForm = true;
+        };
+    });
+
+    view.method('closeHero', function (state) {
+        return function () {
+            state.heroForm = false;
+        };
+    });
+
     // createHero отправляет ответы и рождает героя в базе мира. Мир берётся
     // из карточки открытого мира: он уже рождён, поэтому адрес известен.
     view.method('createHero', function (state) {
@@ -771,12 +786,10 @@ $(function () {
                 body: JSON.stringify({ answers: answers })
             })
                 .then(function () {
-                    var name = answers.name || '';
-                    if (state.world.active) {
-                        state.world.active.hero = true;
-                        state.world.active.heroText = name ? 'Герой «' + name + '»' : 'Герой рождён';
-                        state.world.active.bornText = name ? 'Герой «' + name + '» рождён' : 'Герой рождён';
-                    }
+                    // Карточка перечитывается с сервера: герой и его
+                    // состояние приходят оттуда, а не собираются в браузере.
+                    state.heroForm = false;
+                    return loadWorld(state);
                 })
                 .catch(function (error) {
                     applyHeroErrors(state, error);

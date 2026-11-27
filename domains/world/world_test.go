@@ -2,6 +2,7 @@ package world
 
 import (
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -326,10 +327,71 @@ func TestListWorlds(t *testing.T) {
 	if resp.Worlds[0].Slug != "first-book" || resp.Worlds[1].Slug != "second-book" {
 		t.Fatalf("порядок миров: %s, %s", resp.Worlds[0].Slug, resp.Worlds[1].Slug)
 	}
-	if !resp.Worlds[0].Hero || resp.Worlds[0].HeroName != "Анна" {
-		t.Fatalf("герой первого мира: %+v", resp.Worlds[0])
+	hero := resp.Worlds[0].Hero
+	if hero == nil || hero.Name != "Анна" {
+		t.Fatalf("герой первого мира: %+v", resp.Worlds[0].Hero)
+	}
+	if hero.Health != 100 || hero.Mood != "спокойное" {
+		t.Fatalf("состояние героя: %+v", hero)
 	}
 	if resp.Worlds[0].Active || !resp.Worlds[1].Active {
 		t.Fatalf("пометка открытого мира: %v, %v", resp.Worlds[0].Active, resp.Worlds[1].Active)
+	}
+}
+
+// TestRestStateMatchesMigration — состояние покоя в DDL миграции и в коде
+// совпадают: иначе новорождённый герой и герой, прошедший миграцию,
+// начинают с разных чисел.
+func TestRestStateMatchesMigration(t *testing.T) {
+	var fromMigration HeroState
+	if err := json.Unmarshal([]byte(restStateJSON), &fromMigration); err != nil {
+		t.Fatalf("состояние из миграции: %v", err)
+	}
+	if fromMigration != restState() {
+		t.Fatalf("состояния разошлись: миграция %+v, код %+v", fromMigration, restState())
+	}
+}
+
+// TestHeroStateMigration — база версии 2 получает слой состояния, а уже
+// рождённый герой — состояние покоя: нулевое здоровье читалось бы как
+// мёртвый герой.
+func TestHeroStateMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old", "world.db")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE hero (answers TEXT NOT NULL, created_at TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO hero (answers, created_at) VALUES (?, ?)`,
+		`{"name":"Илья"}`, "2026-11-27T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("PRAGMA user_version = 2"); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	migrated, err := openWorld(path)
+	if err != nil {
+		t.Fatalf("миграция: %v", err)
+	}
+	defer migrated.Close()
+
+	var raw string
+	if err := migrated.QueryRow(`SELECT state FROM hero LIMIT 1`).Scan(&raw); err != nil {
+		t.Fatalf("состояние после миграции: %v", err)
+	}
+	var st HeroState
+	if err := json.Unmarshal([]byte(raw), &st); err != nil {
+		t.Fatalf("разбор состояния: %v", err)
+	}
+	if st != restState() {
+		t.Fatalf("состояние после миграции: %+v", st)
 	}
 }

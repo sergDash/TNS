@@ -14,7 +14,7 @@ import (
 
 // schemaVersion — версия схемы мира. Миграции идут по порядку: номер в
 // PRAGMA user_version говорит, какие уже применены.
-const schemaVersion = 2
+const schemaVersion = 3
 
 // openWorld открывает базу мира, создавая каталог и файл при первом
 // рождении. Соединение одно: база мира пишется одним писателем.
@@ -64,6 +64,7 @@ func migrate(db *sql.DB) error {
 var migrations = []func(*sql.DB) error{
 	migrateWorlds,
 	migrateHero,
+	migrateHeroState,
 }
 
 // migrateWorlds заводит таблицу миров: одна строка — один мир.
@@ -91,10 +92,50 @@ func migrateHero(db *sql.DB) error {
 	return err
 }
 
+// migrateHeroState добавляет герою слой состояния. Уже рождённые герои
+// получают состояние покоя: они появились до того, как статы стали данными,
+// и нулевое здоровье читалось бы как мёртвый герой.
+func migrateHeroState(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE hero ADD COLUMN state TEXT NOT NULL DEFAULT '` + restStateJSON + `'`)
+	return err
+}
+
+// HeroState — телесное состояние героя: восемь статов 0–100 и настроение.
+// Набор и стартовые значения взяты из старой версии (B-07.1, T-19-14):
+// здоровье, комфорт и дух начинаются со 100, остальное — с нуля. Это данные
+// героя, а не настройка: по ним решается, что с ним происходит в сцене.
+type HeroState struct {
+	Health  int    `json:"health"`
+	Hunger  int    `json:"hunger"`
+	Thirst  int    `json:"thirst"`
+	Fatigue int    `json:"fatigue"`
+	Comfort int    `json:"comfort"`
+	Spirit  int    `json:"spirit"`
+	Bladder int    `json:"bladder"`
+	Bowel   int    `json:"bowel"`
+	Mood    string `json:"mood"`
+}
+
+// restStateJSON — состояние покоя в том виде, в каком его получают уже
+// рождённые герои при миграции. Пишется в DDL строкой, потому что миграция —
+// исторический шаг; значение совпадает с restState(), и проверка
+// TestRestStateMatchesMigration следит, чтобы они не разошлись.
+const restStateJSON = `{"health":100,"hunger":0,"thirst":0,"fatigue":0,"comfort":100,"spirit":100,"bladder":0,"bowel":0,"mood":"спокойное"}`
+
+// restState отдаёт состояние покоя: с него начинается жизнь героя.
+func restState() HeroState {
+	return HeroState{Health: 100, Comfort: 100, Spirit: 100, Mood: "спокойное"}
+}
+
 // createHero записывает героя мира. Ответы хранятся как JSON: набор полей
-// задаётся конфигом, и схема за ним не должна меняться.
+// задаётся конфигом, и схема за ним не должна меняться. Состояние пишется
+// сразу состоянием покоя: герой рождается здоровым.
 func createHero(path string, answers map[string]string, now time.Time) error {
 	data, err := json.Marshal(answers)
+	if err != nil {
+		return err
+	}
+	state, err := json.Marshal(restState())
 	if err != nil {
 		return err
 	}
@@ -105,8 +146,8 @@ func createHero(path string, answers map[string]string, now time.Time) error {
 	}
 	defer db.Close()
 
-	_, err = db.Exec(`INSERT INTO hero (answers, created_at) VALUES (?, ?)`,
-		string(data), now.Format(time.RFC3339))
+	_, err = db.Exec(`INSERT INTO hero (answers, state, created_at) VALUES (?, ?, ?)`,
+		string(data), string(state), now.Format(time.RFC3339))
 	return err
 }
 
@@ -156,15 +197,25 @@ func createWorld(path string, a Anketa, now time.Time) error {
 	return err
 }
 
+// HeroCard — герой мира для панели персонажа: имя и происхождение из
+// ответов, здоровье и настроение из слоя состояния. Пустой указатель —
+// героя ещё нет.
+type HeroCard struct {
+	Name    string `json:"name"`
+	Estate  string `json:"estate"`
+	Arrival string `json:"arrival"`
+	Health  int    `json:"health"`
+	Mood    string `json:"mood"`
+}
+
 // WorldCard — мир для экрана: настройки мира, время рождения, герой и
 // признак открытого мира. Настройки читаются из базы мира, а не из
 // отдельного индекса: база — единственный источник истины о своём мире.
 type WorldCard struct {
 	Anketa
-	CreatedAt string `json:"created_at"`
-	Hero      bool   `json:"hero"`
-	HeroName  string `json:"hero_name"`
-	Active    bool   `json:"active"`
+	CreatedAt string    `json:"created_at"`
+	Hero      *HeroCard `json:"hero"`
+	Active    bool      `json:"active"`
 }
 
 // readWorld читает мир из его базы: у мира свой файл, поэтому строка одна.
@@ -192,11 +243,11 @@ func readWorld(path string) (WorldCard, bool, error) {
 		return WorldCard{}, false, err
 	}
 
-	// Герой — отдельный шаг: экран по этому признаку решает, вести игрока
-	// к рождению героя или уже в мир. Имя читается здесь же, чтобы экран
-	// не делал второй запрос ради одной строки.
-	var answers string
-	err = db.QueryRow(`SELECT answers FROM hero LIMIT 1`).Scan(&answers)
+	// Герой — отдельный шаг: экран по этому признаку решает, открывать
+	// форму создания или показывать панель персонажа. Ответы и состояние
+	// читаются здесь же, чтобы экран не делал второй запрос.
+	var answers, state string
+	err = db.QueryRow(`SELECT answers, state FROM hero LIMIT 1`).Scan(&answers, &state)
 	if errors.Is(err, sql.ErrNoRows) {
 		return card, true, nil
 	}
@@ -204,10 +255,21 @@ func readWorld(path string) (WorldCard, bool, error) {
 		return WorldCard{}, false, err
 	}
 
-	card.Hero = true
 	var fields map[string]string
-	if err := json.Unmarshal([]byte(answers), &fields); err == nil {
-		card.HeroName = fields["name"]
+	if err := json.Unmarshal([]byte(answers), &fields); err != nil {
+		return WorldCard{}, false, err
+	}
+	var st HeroState
+	if err := json.Unmarshal([]byte(state), &st); err != nil {
+		return WorldCard{}, false, err
+	}
+
+	card.Hero = &HeroCard{
+		Name:    fields["name"],
+		Estate:  fields["estate"],
+		Arrival: fields["arrival"],
+		Health:  st.Health,
+		Mood:    st.Mood,
 	}
 	return card, true, nil
 }

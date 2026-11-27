@@ -604,4 +604,133 @@ body {
         text-transform: uppercase;
     }
 
+    // Экран игры: верхняя панель, панель персонажа и чат.
+    .game {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+    }
+
+    // Верхняя панель как в старой версии: пункты меню одной строкой.
+    // Пройдя по доступному пункту, игрок попадает в свой экран; недоступный
+    // приглушён и не нажимается.
+    .game-bar {
+        .row(4px);
+
+        flex-wrap: wrap;
+        padding-bottom: 10px;
+        border-bottom: 1px solid @border;
+    }
+
+    .game-tab {
+        padding: 6px 12px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: none;
+        color: @text;
+        font: inherit;
+        font-size: 14px;
+        cursor: pointer;
+
+        &:hover {
+            color: @accent;
+        }
+
+        &.current {
+            border-color: @accent;
+            color: @accent;
+            cursor: default;
+        }
+
+        &.off {
+            color: fade(@text-muted, 55%);
+            cursor: default;
+
+            &:hover {
+                color: fade(@text-muted, 55%);
+            }
+        }
+    }
+
+    // Панель персонажа над чатом: имя и характеристики. Пустая панель
+    // занимает то же место и предлагает создать героя, поэтому чат не
+    // прыгает, когда герой появляется.
+    .hero-panel {
+        display: grid;
+        gap: 8px;
+        min-height: 72px;
+        padding: 12px 14px;
+        border: 1px solid fade(@ok, 40%);
+        border-radius: 12px;
+        background: fade(@ok, 6%);
+
+        &.empty {
+            .row(12px);
+
+            border-color: @border;
+            background: none;
+        }
+    }
+
+    .hero-title {
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .hero-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+    }
+
+    .hero-stat {
+        color: @text-muted;
+        font-size: 13px;
+    }
+
+    .hero-missing {
+        color: @text-muted;
+        font-size: 14px;
+    }
+
+    // Чат: пока пустое место с подсказкой. Минимальная высота задана, чтобы
+    // панель не съезжала, когда появится переписка.
+    .chat {
+        min-height: 180px;
+        padding: 12px 14px;
+        border: 1px solid @border;
+        border-radius: 12px;
+        background: @bg;
+    }
+
+    // Модальное окно: затемнение на весь экран и форма внутри. Клик по
+    // фону закрывает окно, поэтому затемнение — отдельный слой под панелью.
+    .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+    }
+
+    .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: fade(#000, 60%);
+    }
+
+    .modal-panel {
+        .surface();
+
+        position: relative;
+        display: grid;
+        gap: 12px;
+        width: 100%;
+        max-width: 560px;
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+        padding: 20px;
+    }
+
 }
