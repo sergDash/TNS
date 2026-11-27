@@ -39,9 +39,9 @@ $(function () {
     var events = null;
 
     var view = $('#app').state({
-        // storage — значения, которые wex держит в localStorage: вкладка,
-        // открытая в прошлый раз, переживает обновление страницы.
-        storage: { step: 'models' },
+        // storage — значения, которые wex держит в localStorage: вкладка и
+        // открытая форма мира переживают обновление страницы.
+        storage: { step: 'models', form: false },
         // nav — куда сейчас можно попасть. Верхние пункты и нижние кнопки
         // читают одни и те же поля, поэтому не могут разойтись: доступный
         // шаг и нажимается, и ведёт.
@@ -54,9 +54,9 @@ $(function () {
             socialOrder: '', censorship: '', travelMode: '',
             errors: {},
             // active — настройки открытого мира (null, когда мира нет).
-            // form — показывать форму нового мира вместо карточки.
-            active: null,
-            form: false
+            // Показывать ли форму нового мира — в storage.form: это режим
+            // экрана, и он переживает обновление страницы.
+            active: null
         },
         hero: { title: '', note: '', fields: [] },
         progress: [],
@@ -276,8 +276,7 @@ $(function () {
             socialOrder: order, censorship: rating, travelMode: mode,
             errors: emptyErrors(),
             list: list,
-            active: active,
-            form: false
+            active: active
         };
     }
 
@@ -699,7 +698,7 @@ $(function () {
     // мира к новому не относится.
     view.method('newWorld', function (state) {
         return function () {
-            state.world.form = true;
+            state.storage.form = true;
             state.world.title = '';
             state.world.slug = '';
             state.world.synopsis = '';
@@ -712,7 +711,7 @@ $(function () {
     // введённое не сохраняется, мира ещё нет.
     view.method('cancelNew', function (state) {
         return function () {
-            state.world.form = false;
+            state.storage.form = false;
             state.world.title = '';
             state.world.slug = '';
             state.world.synopsis = '';
@@ -843,7 +842,7 @@ $(function () {
                     // Мир рождён и уже открыт на сервере: экран перечитывает
                     // перечни и получает карточку мира вместо формы. Отдельного
                     // «создан» в стейте нет — открытый мир и есть результат.
-                    state.world.form = false;
+                    state.storage.form = false;
                     return loadWorld(state);
                 })
                 .catch(function (error) {

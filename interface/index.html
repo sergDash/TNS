@@ -133,10 +133,10 @@
                     Настройка мира
                     <span class="engine">domains/world</span>
                 </h2>
-                <p class="note" w-if="world.list.length && !world.form">
+                <p class="note" w-if="world.list.length && !storage.form">
                     Это миры на этой машине. Открытый отмечен, «Открыть» переключает мир.
                 </p>
-                <p class="note" w-if="!world.list.length || world.form">
+                <p class="note" w-if="!world.list.length || storage.form">
                     Отвечать долго не нужно: названия, нескольких слов о мире
                     и выбора из списков хватит. Всё остальное уточнится позже.
                 </p>
@@ -144,7 +144,7 @@
                 <!-- Миры карточками, как в старой версии: имя с пометкой,
                      сведения, жанры и состояние героя. Первая карточка —
                      создание нового мира; форма открывается вместо сетки. -->
-                <div class="worlds" w-if="world.list.length && !world.form">
+                <div class="worlds" w-if="world.list.length && !storage.form">
                     <div class="world-new" w-on="click:newWorld">
                         <span class="world-new-plus">+</span>
                         <span class="world-new-title">Создать мир</span>
@@ -165,12 +165,12 @@
                         <div class="line">
                             <button class="button" w-if="w.active" w-on="click:goHero">Играть</button>
                             <button class="button" w-if="!w.active" w-on="click:switchWorld"
-                                    data-slug="{{ w.slug }}">Открыть</button>
+                                    data-slug="{{ w.slug }}">Активировать</button>
                         </div>
                     </article>
                 </div>
 
-                <div class="form" w-if="world.form || !world.list.length">
+                <div class="form" w-if="storage.form || !world.list.length">
                     <div class="field">
                         <span class="label">Название мира</span>
                         <input class="input" w-bind="world.title" placeholder="Тёмное королевство">
