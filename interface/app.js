@@ -45,7 +45,7 @@ $(function () {
         // nav — куда сейчас можно попасть. Верхние пункты и нижние кнопки
         // читают одни и те же поля, поэтому не могут разойтись: доступный
         // шаг и нажимается, и ведёт.
-        nav: { models: true, world: false, hero: false },
+        nav: { models: true, world: false, game: false },
         models: { server: { found: false, title: '', path: '' }, slots: [], disk: { freeBytes: 0 } },
         plan: { bytes: 0, text: '—', status: '—', ramGb: 0, ramText: '—', enough: true, paths: [] },
         world: {
@@ -360,7 +360,7 @@ $(function () {
     // разойтись между собой не могут.
     function recomputeNav(state) {
         state.nav.world = !!state.models.ready;
-        state.nav.hero = !!state.world.active;
+        state.nav.game = !!state.world.active;
     }
 
     // clampStep возвращает вкладку туда, куда можно попасть. Сохранённый шаг
@@ -369,10 +369,15 @@ $(function () {
     function clampStep(state) {
         var step = state.storage.step;
 
-        if (step !== 'models' && step !== 'world' && step !== 'hero') {
+        // Шаг «hero» остался у тех, кто открывал игру до разделения
+        // настроек и игры: он ведёт туда же, куда «game».
+        if (step === 'hero') {
+            step = 'game';
+        }
+        if (step !== 'models' && step !== 'world' && step !== 'game') {
             step = 'models';
         }
-        if (step === 'hero' && !state.nav.hero) {
+        if (step === 'game' && !state.nav.game) {
             step = state.nav.world ? 'world' : 'models';
         }
         if (step === 'world' && !state.nav.world) {
@@ -634,10 +639,10 @@ $(function () {
         };
     });
 
-    // goModels, goWorld, goHero переключают вкладку. Верхний пункт и нижняя
-    // кнопка зовут один и тот же обработчик, поэтому нажатие ведёт туда,
-    // куда обещает подпись. Доступность берётся из nav: недоступный шаг
-    // не открывается, даже если клик всё-таки пришёл.
+    // goModels и goWorld переключают вкладку настройки, play открывает игру.
+    // Верхний пункт и нижняя кнопка зовут один и тот же обработчик, поэтому
+    // нажатие ведёт туда, куда обещает подпись. Доступность берётся из nav:
+    // недоступное не открывается, даже если клик всё-таки пришёл.
     view.method('goModels', function (state) {
         return function () {
             state.storage.step = 'models';
@@ -653,12 +658,12 @@ $(function () {
         };
     });
 
-    view.method('goHero', function (state) {
+    view.method('play', function (state) {
         return function () {
-            if (!state.nav.hero) {
+            if (!state.nav.game) {
                 return;
             }
-            state.storage.step = 'hero';
+            state.storage.step = 'game';
         };
     });
 
@@ -682,7 +687,7 @@ $(function () {
                     state.world = prepareWorld(data);
                     state.hero = prepareHero(data.hero || {});
                     recomputeNav(state);
-                    if (state.storage.step === 'hero') {
+                    if (state.storage.step === 'game') {
                         state.storage.step = 'world';
                     }
                 })

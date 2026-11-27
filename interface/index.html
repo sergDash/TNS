@@ -37,11 +37,11 @@
 
             <p class="failure" w-if="failure">{{ failure }}</p>
 
-            <nav class="steps">
+            <nav class="steps" w-if="storage.step !== 'game'">
                 <span class="step" w-on="click:goModels"
                       w-class="{ 'current': storage.step === 'models', 'done': storage.step !== 'models' }">Модели</span>
                 <span class="step" w-on="click:goWorld"
-                      w-class="{ 'current': storage.step === 'world' || storage.step === 'hero',
+                      w-class="{ 'current': storage.step === 'world',
                                  'link': nav.world, 'off': !nav.world }">Мир</span>
             </nav>
 
@@ -133,9 +133,6 @@
                     Настройка мира
                     <span class="engine">domains/world</span>
                 </h2>
-                <p class="note" w-if="world.list.length && !storage.form">
-                    Это миры на этой машине. Открытый отмечен, «Активировать» переключает мир.
-                </p>
                 <p class="note" w-if="!world.list.length || storage.form">
                     Отвечать долго не нужно: названия, нескольких слов о мире
                     и выбора из списков хватит. Всё остальное уточнится позже.
@@ -163,7 +160,7 @@
                         </div>
                         <p class="world-status" w-class="{ 'ok': w.hero }">{{ w.heroText }}</p>
                         <div class="line">
-                            <button class="button" w-if="w.active" w-on="click:goHero">Играть</button>
+                            <button class="button" w-if="w.active" w-on="click:play">Играть</button>
                             <button class="button" w-if="!w.active" w-on="click:switchWorld"
                                     data-slug="{{ w.slug }}">Активировать</button>
                         </div>
@@ -241,14 +238,14 @@
                 </div>
             </section>
 
-            <section class="block" w-if="storage.step === 'hero'">
+            <section class="block" w-if="storage.step === 'game' && world.active">
                 <h2 class="caption">
-                    Герой
+                    {{ world.active.title }}
                     <span class="engine">domains/world</span>
                 </h2>
-                <p class="note">{{ hero.note }}</p>
+                <p class="note" w-if="!world.active.hero">{{ hero.note }}</p>
 
-                <div class="created" w-if="world.active && world.active.hero">
+                <div class="created" w-if="world.active.hero">
                     <p>{{ world.active.bornText }}.</p>
                     <p class="hint">
                         Дальше — первый ход: реплика игрока и ответ мира.
@@ -256,7 +253,7 @@
                     </p>
                 </div>
 
-                <div class="form" w-if="!world.active || !world.active.hero">
+                <div class="form" w-if="!world.active.hero">
                     <div class="field" w-for="f in hero.fields traceby f.id">
                         <span class="label">{{ f.title }}</span>
                         <input class="input" w-if="f.type === 'text'" data-field="{{ f.id }}"
@@ -273,8 +270,12 @@
 
                     <div class="line">
                         <button class="button" w-on="click:createHero">Начать</button>
-                        <button class="button" w-on="click:goWorld">Назад</button>
+                        <button class="button" w-on="click:goWorld">Настройки мира</button>
                     </div>
+                </div>
+
+                <div class="line" w-if="world.active.hero">
+                    <button class="button" w-on="click:goWorld">Настройки мира</button>
                 </div>
             </section>
 
