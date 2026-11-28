@@ -16,13 +16,15 @@ import (
 	"tns/engine/core"
 )
 
-// Config — настройки модуля: где лежат схема мира, выбранные значения,
-// каталог миров и файл выбора открытого мира.
+// Config — настройки модуля: где лежит база перечней, какие языки включены,
+// чем заполнены поля героя, каталог миров и файл выбора открытого мира.
 type Config struct {
-	// Schema — схема канона и формы героя.
-	Schema string `json:"schema"`
-	// Config — файл выбранного: включённые языки и умолчания героя.
-	Config string `json:"config"`
+	// Enums — база перечней допустимых значений и полей героя.
+	Enums string `json:"enums"`
+	// Langs — включённые языки: выбранное из перечня.
+	Langs []string `json:"langs"`
+	// HeroDefaults — чем заполнены поля героя при показе формы.
+	HeroDefaults map[string]string `json:"heroDefaults"`
 	// Dir — каталог миров: <dir>/<адрес мира>/world.db.
 	Dir string `json:"dir"`
 	// Active — файл выбора: какой мир открыт в интерфейсе.
@@ -30,18 +32,14 @@ type Config struct {
 }
 
 const (
-	defaultSchema = "schemas/world.schema.json"
-	defaultConfig = "config/world.json"
+	defaultEnums  = "schemas/enums.db"
 	defaultDir    = "worlds"
 	defaultActive = "config/active_world.json"
 )
 
 func (c Config) withDefaults() Config {
-	if c.Schema == "" {
-		c.Schema = defaultSchema
-	}
-	if c.Config == "" {
-		c.Config = defaultConfig
+	if c.Enums == "" {
+		c.Enums = defaultEnums
 	}
 	if c.Dir == "" {
 		c.Dir = defaultDir
@@ -73,7 +71,7 @@ func New(settings json.RawMessage) (core.Module, error) {
 	}
 	cfg = cfg.withDefaults()
 
-	lists, err := LoadWorld(cfg.Schema, cfg.Config)
+	lists, err := LoadLists(cfg.Enums, cfg.Langs, cfg.HeroDefaults)
 	if err != nil {
 		return nil, fmt.Errorf("world: %w", err)
 	}
@@ -170,6 +168,7 @@ func (m *module) listsResponse() (anketaResponse, error) {
 		TravelModes:  m.lists.TravelModes,
 		Ratings:      m.lists.Ratings,
 		Hero:         m.lists.Hero,
+		Worlds:       []WorldCard{},
 	}
 
 	slugs, err := worldSlugs(m.cfg.Dir)

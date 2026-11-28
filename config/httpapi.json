@@ -33,8 +33,12 @@
         "bin": "bin"
       },
       "world": {
-        "schema": "schemas/world.schema.json",
-        "config": "config/world.json",
+        "enums": "schemas/enums.db",
+        "langs": ["ru"],
+        "heroDefaults": {
+          "estate": "крестьянин",
+          "arrival": "очнулся в чужом теле"
+        },
         "dir": "worlds",
         "active": "config/active_world.json"
       }

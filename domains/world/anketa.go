@@ -2,9 +2,9 @@
 // мира в его собственной базе. Анкета задаёт мир, а не книгу: имя, адрес,
 // о чём история, жанры, строй и рейтинг.
 //
-// Канонические перечни (жанры, строи, сословия) описаны схемой
-// schemas/world.schema.json, а config/world.json хранит выбранное: какие
-// языки включены и чем заполнены поля героя. Код отвечает за проверку.
+// Перечни допустимых значений (жанры, строи, сословия) лежат в
+// schemas/enums.db, а настройки модуля хранят выбранное: какие языки
+// включены и чем заполнены поля героя. Код отвечает за проверку.
 package world
 
 import (
@@ -18,7 +18,6 @@ type Lists struct {
 	Genres       []string `json:"genres"`
 	SocialOrders []string `json:"social_orders"`
 	TravelModes  []string `json:"travel_modes"`
-	EconomyMods  []string `json:"economy_mods"`
 	Ratings      []string `json:"ratings"`
 	Langs        []string `json:"langs"`
 	// Hero — форма героя. Пустой список полей значит, что отдельного шага

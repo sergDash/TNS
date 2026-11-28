@@ -6,7 +6,8 @@ import (
 )
 
 // HeroField — одно поле анкеты героя: подпись, вид и правило проверки.
-// Поля приходят из конфига, поэтому форма героя меняется без пересборки.
+// Поля приходят из базы перечней (schemas/enums.db), поэтому форма героя
+// меняется без пересборки.
 type HeroField struct {
 	ID       string   `json:"id"`
 	Title    string   `json:"title"`
@@ -20,8 +21,9 @@ type HeroField struct {
 	Default string `json:"default"`
 }
 
-// Hero — форма героя из схемы. Состав полей описан схемой
-// schemas/world.schema.json, значения по умолчанию — в config/world.json.
+// Hero — форма героя из базы перечней. Состав полей описан таблицей
+// hero_fields в schemas/enums.db, значения по умолчанию — в настройках
+// модуля.
 type Hero struct {
 	Title  string      `json:"title"`
 	Note   string      `json:"note"`

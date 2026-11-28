@@ -227,13 +227,38 @@ func TestCreateHero(t *testing.T) {
 	}
 }
 
-// TestShippedSchema — канон берётся из схемы, выбранное из конфига: размеры
+// shippedWorldSettings читает раздел модуля мира из настроек экземпляра:
+// проверка идёт по тем значениям, с которыми приложение запускается.
+func shippedWorldSettings(t *testing.T) Config {
+	t.Helper()
+
+	data, err := os.ReadFile(filepath.Join("..", "..", "config", "httpapi.json"))
+	if err != nil {
+		t.Fatalf("настройки: %v", err)
+	}
+
+	var file struct {
+		Modules struct {
+			Settings map[string]json.RawMessage `json:"settings"`
+		} `json:"modules"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatalf("настройки: %v", err)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(file.Modules.Settings["world"], &cfg); err != nil {
+		t.Fatalf("настройки мира: %v", err)
+	}
+	cfg.Enums = filepath.Join("..", "..", cfg.Enums)
+	return cfg
+}
+
+// TestShippedEnums — перечни берутся из базы, выбранное из настроек: размеры
 // перечней, порядок полей героя и умолчания должны совпасть с поставкой.
-func TestShippedSchema(t *testing.T) {
-	lists, err := LoadWorld(
-		filepath.Join("..", "..", "schemas", "world.schema.json"),
-		filepath.Join("..", "..", "config", "world.json"),
-	)
+func TestShippedEnums(t *testing.T) {
+	cfg := shippedWorldSettings(t)
+	lists, err := LoadLists(cfg.Enums, cfg.Langs, cfg.HeroDefaults)
 	if err != nil {
 		t.Fatalf("мир: %v", err)
 	}
@@ -269,24 +294,24 @@ func TestShippedSchema(t *testing.T) {
 	}
 }
 
-// TestConfigOutsideCanon — значение конфига, которого нет в схеме,
+// TestSettingsOutsideEnums — значение настроек, которого нет в перечнях,
 // останавливает запуск: это опечатка, а не выбор.
-func TestConfigOutsideCanon(t *testing.T) {
-	dir := t.TempDir()
+func TestSettingsOutsideEnums(t *testing.T) {
+	enumsPath := filepath.Join("..", "..", "schemas", "enums.db")
 
-	cases := []struct{ name, body string }{
-		{"язык вне канона", `{"langs":["tlh"],"hero":{"defaults":{}}}`},
-		{"умолчание вне списка", `{"langs":["ru"],"hero":{"defaults":{"estate":"барон"}}}`},
-		{"умолчание неизвестного поля", `{"langs":["ru"],"hero":{"defaults":{"nickname":"x"}}}`},
-		{"без языков", `{"langs":[],"hero":{"defaults":{}}}`},
+	cases := []struct {
+		name     string
+		langs    []string
+		defaults map[string]string
+	}{
+		{"язык вне перечня", []string{"tlh"}, nil},
+		{"умолчание вне списка", []string{"ru"}, map[string]string{"estate": "барон"}},
+		{"умолчание неизвестного поля", []string{"ru"}, map[string]string{"nickname": "x"}},
+		{"без языков", nil, nil},
 	}
 
-	for i, c := range cases {
-		path := filepath.Join(dir, "config-"+string(rune('a'+i))+".json")
-		if err := os.WriteFile(path, []byte(c.body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		_, err := LoadWorld(filepath.Join("..", "..", "schemas", "world.schema.json"), path)
+	for _, c := range cases {
+		_, err := LoadLists(enumsPath, c.langs, c.defaults)
 		if err == nil {
 			t.Fatalf("%s: настройки приняты", c.name)
 		}
@@ -336,6 +361,22 @@ func TestListWorlds(t *testing.T) {
 	}
 	if resp.Worlds[0].Active || !resp.Worlds[1].Active {
 		t.Fatalf("пометка открытого мира: %v, %v", resp.Worlds[0].Active, resp.Worlds[1].Active)
+	}
+}
+
+// TestListWorldsEmpty — пустой каталог отдаёт пустой список, а не null:
+// экран обходит список и не должен проверять его на nil.
+func TestListWorldsEmpty(t *testing.T) {
+	m := &module{cfg: Config{Dir: t.TempDir()}}
+	resp, err := m.listsResponse()
+	if err != nil {
+		t.Fatalf("карточки: %v", err)
+	}
+	if resp.Worlds == nil {
+		t.Fatal("список миров nil, нужен пустой массив")
+	}
+	if len(resp.Worlds) != 0 {
+		t.Fatalf("миров: %d", len(resp.Worlds))
 	}
 }
 
