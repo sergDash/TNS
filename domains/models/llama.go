@@ -34,6 +34,10 @@ func installServer(ctx context.Context, client *http.Client, source, wantSHA, bi
 // Остальное — серверы для других задач и README — приложению не нужно, и
 // раскладывать их по каталогу сборки значит прятать мусор среди рабочих
 // файлов.
+//
+// Ссылки в архиве сохраняются как ссылки. Опыт 2026-11-28: без них bin
+// оставался с libllama-common.so.0.8.0, но без libllama-common.so.0, и
+// llama-server не запускался — загрузчик ищет soname, а не файл с версией.
 func extractServer(archive, dir string) error {
 	file, err := os.Open(archive)
 	if err != nil {
@@ -52,6 +56,12 @@ func extractServer(archive, dir string) error {
 	}
 
 	found := false
+
+	// Жёсткие ссылки создаются после разбора: цель может лежать в архиве
+	// позже ссылки на неё.
+	type hardLink struct{ path, target string }
+	var links []hardLink
+
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
@@ -61,19 +71,36 @@ func extractServer(archive, dir string) error {
 		if err != nil {
 			return err
 		}
-		if hdr.Typeflag != tar.TypeReg {
-			continue
-		}
 
 		base := filepath.Base(hdr.Name)
 		if base != "llama-server" && !strings.HasPrefix(base, "lib") {
 			continue
 		}
-		if err := writeRegular(filepath.Join(dir, base), tr); err != nil {
-			return err
+
+		switch hdr.Typeflag {
+		case tar.TypeReg:
+			if err := writeRegular(filepath.Join(dir, base), tr); err != nil {
+				return err
+			}
+			if base == "llama-server" {
+				found = true
+			}
+		case tar.TypeSymlink:
+			if err := writeSymlink(filepath.Join(dir, base), filepath.Base(hdr.Linkname)); err != nil {
+				return err
+			}
+		case tar.TypeLink:
+			links = append(links, hardLink{
+				path:   filepath.Join(dir, base),
+				target: filepath.Join(dir, filepath.Base(hdr.Linkname)),
+			})
 		}
-		if base == "llama-server" {
-			found = true
+	}
+
+	for _, l := range links {
+		_ = os.Remove(l.path)
+		if err := os.Link(l.target, l.path); err != nil {
+			return err
 		}
 	}
 
@@ -81,6 +108,15 @@ func extractServer(archive, dir string) error {
 		return fmt.Errorf("в архиве нет llama-server")
 	}
 	return nil
+}
+
+// writeSymlink кладёт ссылку из архива. Прежняя ссылка с тем же именем
+// убирается: повторная распаковка не должна падать на уже созданном.
+func writeSymlink(path, target string) error {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return os.Symlink(target, path)
 }
 
 // writeRegular кладёт файл из архива на место с правами запуска: библиотеки

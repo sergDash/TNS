@@ -126,23 +126,33 @@ func TestFetchBadSHA(t *testing.T) {
 	}
 }
 
-// TestExtractServer — из архива берутся только сервер и библиотеки.
+// TestExtractServer — из архива берутся только сервер и библиотеки, а
+// ссылки на версионированные библиотеки сохраняются ссылками: без них
+// динамический загрузчик не находит soname.
 func TestExtractServer(t *testing.T) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
 
-	files := map[string]string{
-		"llama-b1/llama-server": "#!/bin/sh\n",
-		"llama-b1/libggml.so":   "lib",
-		"llama-b1/README.md":    "не нужно",
+	entries := []struct {
+		hdr  tar.Header
+		body string
+	}{
+		{tar.Header{Name: "llama-b1/llama-server", Mode: 0o755, Size: 10, Typeflag: tar.TypeReg}, "#!/bin/sh\n"},
+		{tar.Header{Name: "llama-b1/libggml.so.0.8.0", Mode: 0o755, Size: 3, Typeflag: tar.TypeReg}, "lib"},
+		{tar.Header{Name: "llama-b1/libggml.so.0", Linkname: "libggml.so.0.8.0", Mode: 0o777, Typeflag: tar.TypeSymlink}, ""},
+		{tar.Header{Name: "llama-b1/libllama.so.0.8.0", Mode: 0o755, Size: 5, Typeflag: tar.TypeReg}, "llama"},
+		{tar.Header{Name: "llama-b1/libllama.so.0", Linkname: "llama-b1/libllama.so.0.8.0", Typeflag: tar.TypeLink}, ""},
+		{tar.Header{Name: "llama-b1/README.md", Mode: 0o644, Size: 15, Typeflag: tar.TypeReg}, "не нужно"},
 	}
-	for name, body := range files {
-		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+	for _, e := range entries {
+		if err := tw.WriteHeader(&e.hdr); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tw.Write([]byte(body)); err != nil {
-			t.Fatal(err)
+		if e.body != "" {
+			if _, err := tw.Write([]byte(e.body)); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	tw.Close()
@@ -159,13 +169,28 @@ func TestExtractServer(t *testing.T) {
 		t.Fatalf("extractServer: %v", err)
 	}
 
-	for _, name := range []string{"llama-server", "libggml.so"} {
+	for _, name := range []string{"llama-server", "libggml.so.0.8.0", "libggml.so.0", "libllama.so.0"} {
 		if _, err := os.Stat(filepath.Join(bin, name)); err != nil {
 			t.Fatalf("%s не разложен: %v", name, err)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(bin, "README.md")); !os.IsNotExist(err) {
 		t.Fatal("в каталог попал посторонний файл")
+	}
+
+	target, err := os.Readlink(filepath.Join(bin, "libggml.so.0"))
+	if err != nil {
+		t.Fatalf("символическая ссылка не создана: %v", err)
+	}
+	if target != "libggml.so.0.8.0" {
+		t.Fatalf("ссылка ведёт на %q", target)
+	}
+	body, err := os.ReadFile(filepath.Join(bin, "libllama.so.0"))
+	if err != nil {
+		t.Fatalf("жёсткая ссылка не читается: %v", err)
+	}
+	if string(body) != "llama" {
+		t.Fatalf("жёсткая ссылка отдала %q", body)
 	}
 
 	info, err := os.Stat(filepath.Join(bin, "llama-server"))
